@@ -43,9 +43,15 @@
             <div class="header-right">
               <span
                 class="status-badge"
-                :class="client.online ? 'online' : 'offline'"
+                :class="client.disabled ? 'banned' : client.online ? 'online' : 'offline'"
               >
-                {{ client.online ? t('common.online') : t('common.offline') }}
+                {{
+                  client.disabled
+                    ? t('governance.disabled')
+                    : client.online
+                      ? t('common.online')
+                      : t('common.offline')
+                }}
               </span>
             </div>
           </div>
@@ -73,7 +79,90 @@
               }}</span>
             </div>
           </div>
+
+          <!-- Governance Actions -->
+          <div v-if="client.clientID" class="governance-section">
+            <el-button
+              v-if="!client.disabled"
+              type="danger"
+              plain
+              size="small"
+              :icon="Lock"
+              :loading="actionLoading"
+              @click="showActionDialog('disable')"
+            >
+              {{ t('governance.disable') }}
+            </el-button>
+            <el-button
+              v-if="client.disabled"
+              type="success"
+              plain
+              size="small"
+              :icon="Unlock"
+              :loading="actionLoading"
+              @click="showActionDialog('enable')"
+            >
+              {{ t('governance.enable') }}
+            </el-button>
+            <el-button
+              v-if="client.online"
+              type="warning"
+              plain
+              size="small"
+              :icon="SwitchButton"
+              :loading="actionLoading"
+              @click="showActionDialog('disconnect')"
+            >
+              {{ t('governance.disconnect') }}
+            </el-button>
+            <el-button
+              v-if="!client.disabled && client.online"
+              type="danger"
+              size="small"
+              :icon="CircleClose"
+              :loading="actionLoading"
+              @click="showActionDialog('disableAndDisconnect')"
+            >
+              {{ t('governance.disableAndDisconnect') }}
+            </el-button>
+          </div>
         </div>
+
+        <!-- Governance Action Dialog -->
+        <el-dialog
+          v-model="dialogVisible"
+          :title="dialogTitle"
+          width="420px"
+          :close-on-click-modal="false"
+        >
+          <p class="dialog-confirm-text">{{ dialogConfirmText }}</p>
+          <el-form label-position="top">
+            <el-form-item :label="t('governance.reason')">
+              <el-input
+                v-model="actionForm.reason"
+                :placeholder="t('governance.reasonPlaceholder')"
+              />
+            </el-form-item>
+            <el-form-item :label="t('governance.operator')">
+              <el-input
+                v-model="actionForm.operator"
+                :placeholder="t('governance.operatorPlaceholder')"
+              />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="dialogVisible = false">{{
+              t('proxies.cancel')
+            }}</el-button>
+            <el-button
+              :type="dialogAction === 'enable' ? 'success' : 'danger'"
+              :loading="actionLoading"
+              @click="executeAction"
+            >
+              {{ dialogTitle }}
+            </el-button>
+          </template>
+        </el-dialog>
 
         <!-- Proxies Card -->
         <div class="proxies-card">
@@ -128,9 +217,23 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Loading, Search } from '@element-plus/icons-vue'
+import {
+  ArrowLeft,
+  Loading,
+  Search,
+  Lock,
+  Unlock,
+  SwitchButton,
+  CircleClose,
+} from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
 import { getClient } from '../api/client'
+import {
+  disableClient,
+  enableClient,
+  disconnectSession,
+  disableAndDisconnect,
+} from '../api/admin'
 import { getProxiesByType } from '../api/proxy'
 import {
   BaseProxy,
@@ -151,6 +254,79 @@ const router = useRouter()
 const { t } = useI18n()
 const client = ref<Client | null>(null)
 const loading = ref(true)
+
+type GovernanceAction = 'disable' | 'enable' | 'disconnect' | 'disableAndDisconnect'
+const dialogVisible = ref(false)
+const dialogAction = ref<GovernanceAction>('disable')
+const actionLoading = ref(false)
+const actionForm = ref({ reason: '', operator: '' })
+
+const dialogTitle = computed(() => {
+  const map: Record<GovernanceAction, string> = {
+    disable: t('governance.disable'),
+    enable: t('governance.enable'),
+    disconnect: t('governance.disconnect'),
+    disableAndDisconnect: t('governance.disableAndDisconnect'),
+  }
+  return map[dialogAction.value]
+})
+
+const dialogConfirmText = computed(() => {
+  const map: Record<GovernanceAction, string> = {
+    disable: t('governance.confirmDisable'),
+    enable: t('governance.confirmEnable'),
+    disconnect: t('governance.confirmDisconnect'),
+    disableAndDisconnect: t('governance.confirmDisableAndDisconnect'),
+  }
+  return map[dialogAction.value]
+})
+
+const showActionDialog = (action: GovernanceAction) => {
+  dialogAction.value = action
+  actionForm.value = { reason: '', operator: '' }
+  dialogVisible.value = true
+}
+
+const executeAction = async () => {
+  if (!client.value) return
+  actionLoading.value = true
+  const body = {
+    reason: actionForm.value.reason || undefined,
+    operator: actionForm.value.operator || undefined,
+  }
+
+  try {
+    const successMap: Record<GovernanceAction, string> = {
+      disable: t('governance.disableSuccess'),
+      enable: t('governance.enableSuccess'),
+      disconnect: t('governance.disconnectSuccess'),
+      disableAndDisconnect: t('governance.disableAndDisconnectSuccess'),
+    }
+
+    switch (dialogAction.value) {
+      case 'disable':
+        await disableClient(client.value.clientID, body)
+        break
+      case 'enable':
+        await enableClient(client.value.clientID, body)
+        break
+      case 'disconnect':
+        await disconnectSession(client.value.runID, body)
+        break
+      case 'disableAndDisconnect':
+        await disableAndDisconnect(client.value.clientID, body)
+        break
+    }
+
+    ElMessage.success(successMap[dialogAction.value])
+    dialogVisible.value = false
+    await fetchClient()
+  } catch (error: any) {
+    ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
+  } finally {
+    actionLoading.value = false
+  }
+}
 
 const goBack = () => {
   if (window.history.length > 1) {
@@ -402,9 +578,19 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
+.status-badge.banned {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
 html.dark .status-badge.online {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
+}
+
+html.dark .status-badge.banned {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
 }
 
 /* Info Section */
@@ -435,6 +621,23 @@ html.dark .status-badge.online {
   color: var(--text-primary);
   font-weight: 500;
   word-break: break-all;
+}
+
+/* Governance Section */
+.governance-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--header-border);
+  flex-wrap: wrap;
+}
+
+.dialog-confirm-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
 }
 
 /* Proxies Card */

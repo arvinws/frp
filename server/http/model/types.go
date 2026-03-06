@@ -52,6 +52,7 @@ type ClientInfoResp struct {
 	LastConnectedAt  int64  `json:"lastConnectedAt"`
 	DisconnectedAt   int64  `json:"disconnectedAt,omitempty"`
 	Online           bool   `json:"online"`
+	Disabled         bool   `json:"disabled"`
 }
 
 type BaseOutConf struct {

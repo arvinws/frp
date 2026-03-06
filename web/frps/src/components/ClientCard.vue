@@ -3,7 +3,7 @@
     <div class="card-icon-wrapper">
       <div
         class="status-dot-large"
-        :class="client.online ? 'online' : 'offline'"
+        :class="client.disabled ? 'banned' : client.online ? 'online' : 'offline'"
       ></div>
     </div>
 
@@ -13,6 +13,9 @@
         <span v-if="client.hostname" class="hostname-badge">{{
           client.hostname
         }}</span>
+        <el-tag v-if="client.disabled" size="small" type="danger">{{
+          t('governance.disabled')
+        }}</el-tag>
         <el-tag v-if="client.version" size="small" type="success"
           >v{{ client.version }}</el-tag
         >
@@ -35,8 +38,17 @@
     </div>
 
     <div class="card-action">
-      <div class="status-badge" :class="client.online ? 'online' : 'offline'">
-        {{ client.online ? t('common.online') : t('common.offline') }}
+      <div
+        class="status-badge"
+        :class="client.disabled ? 'banned' : client.online ? 'online' : 'offline'"
+      >
+        {{
+          client.disabled
+            ? t('governance.disabled')
+            : client.online
+              ? t('common.online')
+              : t('common.offline')
+        }}
       </div>
       <el-icon class="arrow-icon"><ArrowRight /></el-icon>
     </div>
@@ -116,6 +128,11 @@ const viewDetail = () => {
 
 .status-dot-large.offline {
   background-color: var(--el-text-color-placeholder);
+}
+
+.status-dot-large.banned {
+  background-color: var(--el-color-danger);
+  box-shadow: 0 0 0 2px var(--el-color-danger-light-8);
 }
 
 .card-content {
@@ -210,6 +227,11 @@ const viewDetail = () => {
 .status-badge.offline {
   background: var(--el-fill-color);
   color: var(--el-text-color-secondary);
+}
+
+.status-badge.banned {
+  background: var(--el-color-danger-light-9);
+  color: var(--el-color-danger);
 }
 
 .arrow-icon {

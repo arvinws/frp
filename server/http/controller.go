@@ -24,6 +24,7 @@ import (
 
 	"github.com/fatedier/frp/pkg/config/types"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/ext/banlist"
 	"github.com/fatedier/frp/pkg/metrics/mem"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/log"
@@ -34,10 +35,10 @@ import (
 )
 
 type Controller struct {
-	// dependencies
 	serverCfg      *v1.ServerConfig
 	clientRegistry *registry.ClientRegistry
 	pxyManager     ProxyManager
+	banStore       banlist.Store
 }
 
 type ProxyManager interface {
@@ -48,11 +49,13 @@ func NewController(
 	serverCfg *v1.ServerConfig,
 	clientRegistry *registry.ClientRegistry,
 	pxyManager ProxyManager,
+	banStore banlist.Store,
 ) *Controller {
 	return &Controller{
 		serverCfg:      serverCfg,
 		clientRegistry: clientRegistry,
 		pxyManager:     pxyManager,
+		banStore:       banStore,
 	}
 }
 
@@ -110,7 +113,7 @@ func (c *Controller) APIClientList(ctx *httppkg.Context) (any, error) {
 		if !matchStatusFilter(info.Online, statusFilter) {
 			continue
 		}
-		items = append(items, buildClientInfoResp(info))
+		items = append(items, c.buildClientInfoResp(info))
 	}
 
 	slices.SortFunc(items, func(a, b model.ClientInfoResp) int {
@@ -142,7 +145,7 @@ func (c *Controller) APIClientDetail(ctx *httppkg.Context) (any, error) {
 		return nil, httppkg.NewError(http.StatusNotFound, fmt.Sprintf("client %s not found", key))
 	}
 
-	return buildClientInfoResp(info), nil
+	return c.buildClientInfoResp(info), nil
 }
 
 // /api/proxy/:type
@@ -280,7 +283,7 @@ func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName stri
 	return
 }
 
-func buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
+func (c *Controller) buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
 	resp := model.ClientInfoResp{
 		Key:              info.Key,
 		User:             info.User,
@@ -295,6 +298,10 @@ func buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
 	}
 	if !info.DisconnectedAt.IsZero() {
 		resp.DisconnectedAt = info.DisconnectedAt.Unix()
+	}
+	if c.banStore != nil && resp.ClientID != "" {
+		disabled, _ := c.banStore.IsDisabled(resp.ClientID)
+		resp.Disabled = disabled
 	}
 	return resp
 }

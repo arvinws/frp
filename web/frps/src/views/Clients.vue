@@ -61,15 +61,16 @@ const { t } = useI18n()
 const clients = ref<Client[]>([])
 const loading = ref(false)
 const searchText = ref('')
-const statusFilter = ref<'all' | 'online' | 'offline'>('all')
+const statusFilter = ref<'all' | 'online' | 'offline' | 'disabled'>('all')
 
 let refreshTimer: number | null = null
 
 const stats = computed(() => {
   const total = clients.value.length
   const online = clients.value.filter((c) => c.online).length
-  const offline = total - online
-  return { total, online, offline }
+  const offline = clients.value.filter((c) => !c.online).length
+  const disabled = clients.value.filter((c) => c.disabled).length
+  return { total, online, offline, disabled }
 })
 
 const statusTabs = computed(() => [
@@ -84,16 +85,22 @@ const statusTabs = computed(() => [
     label: t('clients.offline'),
     count: stats.value.offline,
   },
+  {
+    value: 'disabled' as const,
+    label: t('governance.disabled'),
+    count: stats.value.disabled,
+  },
 ])
 
 const filteredClients = computed(() => {
   let result = clients.value
 
-  // Filter by status
   if (statusFilter.value === 'online') {
     result = result.filter((c) => c.online)
   } else if (statusFilter.value === 'offline') {
     result = result.filter((c) => !c.online)
+  } else if (statusFilter.value === 'disabled') {
+    result = result.filter((c) => c.disabled)
   }
 
   // Filter by search text
@@ -240,6 +247,10 @@ onUnmounted(() => {
 
 .status-dot.all {
   background-color: var(--el-text-color-regular);
+}
+
+.status-dot.disabled {
+  background-color: var(--el-color-danger);
 }
 
 .tab-count {

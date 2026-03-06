@@ -14,6 +14,7 @@ export class Client {
   lastConnectedAt: Date
   disconnectedAt?: Date
   online: boolean
+  disabled: boolean
 
   constructor(data: ClientInfoData) {
     this.key = data.key
@@ -35,6 +36,7 @@ export class Client {
       this.disconnectedAt = new Date(data.disconnectedAt * 1000)
     }
     this.online = data.online
+    this.disabled = data.disabled ?? false
   }
 
   get displayName(): string {

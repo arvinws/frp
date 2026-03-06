@@ -37,7 +37,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 		subRouter.Handle("/metrics", promhttp.Handler())
 	}
 
-	apiController := dashboardapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager)
+	apiController := dashboardapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager, svr.clientBanStore)
 	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder)
 
 	// apis
