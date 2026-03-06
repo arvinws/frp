@@ -109,13 +109,10 @@ func (cr *ClientRegistry) MarkOfflineByRunID(runID string) {
 		return
 	}
 	if info, ok := cr.clients[key]; ok && info.RunID == runID {
+		info.Online = false
+		info.DisconnectedAt = time.Now()
 		if info.RawClientID == "" {
-			delete(cr.clients, key)
-		} else {
 			info.RunID = ""
-			info.Online = false
-			now := time.Now()
-			info.DisconnectedAt = now
 		}
 	}
 	delete(cr.runIndex, runID)

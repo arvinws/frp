@@ -396,12 +396,19 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 			effectiveID = ctl.loginMsg.RunID
 		}
 		disabled, record := ctl.clientBanStore.IsDisabled(effectiveID)
+		if !disabled {
+			remoteIP := ctl.conn.RemoteAddr().String()
+			if host, _, splitErr := net.SplitHostPort(remoteIP); splitErr == nil {
+				remoteIP = host
+			}
+			disabled, record = ctl.clientBanStore.IsIPDisabled(remoteIP)
+		}
 		if disabled {
 			reason := strings.TrimSpace(record.Reason)
 			if reason != "" {
-				err = fmt.Errorf("client_id [%s] is disabled: %s", effectiveID, reason)
+				err = fmt.Errorf("client [%s] is disabled: %s", effectiveID, reason)
 			} else {
-				err = fmt.Errorf("client_id [%s] is disabled", effectiveID)
+				err = fmt.Errorf("client [%s] is disabled", effectiveID)
 			}
 		}
 	}

@@ -40,12 +40,19 @@ type Store interface {
 	Enable(clientID, operator string) (ClientBanRecord, bool)
 	Get(clientID string) ClientBanRecord
 	IsDisabled(clientID string) (bool, ClientBanRecord)
+
+	DisableIP(ip, clientID, reason, operator string)
+	EnableByClientID(clientID string)
+	IsIPDisabled(ip string) (bool, ClientBanRecord)
 }
 
 // MemoryStore keeps disabled records in memory.
 type MemoryStore struct {
 	mu       sync.RWMutex
 	disabled map[string]banEntry
+
+	bannedIPs     map[string]ipBanEntry // ip -> ban info
+	ipsByClientID map[string][]string   // clientID -> []ip
 }
 
 type banEntry struct {
@@ -54,9 +61,18 @@ type banEntry struct {
 	updatedAt time.Time
 }
 
+type ipBanEntry struct {
+	clientID  string
+	reason    string
+	operator  string
+	updatedAt time.Time
+}
+
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		disabled: make(map[string]banEntry),
+		disabled:      make(map[string]banEntry),
+		bannedIPs:     make(map[string]ipBanEntry),
+		ipsByClientID: make(map[string][]string),
 	}
 }
 
@@ -139,6 +155,68 @@ func (s *MemoryStore) Get(clientID string) ClientBanRecord {
 func (s *MemoryStore) IsDisabled(clientID string) (bool, ClientBanRecord) {
 	record := s.Get(clientID)
 	return record.Status == StatusDisabled, record
+}
+
+func (s *MemoryStore) DisableIP(ip, clientID, reason, operator string) {
+	if ip == "" {
+		return
+	}
+	now := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.bannedIPs[ip] = ipBanEntry{
+		clientID:  clientID,
+		reason:    reason,
+		operator:  operator,
+		updatedAt: now,
+	}
+	if clientID != "" {
+		s.ipsByClientID[clientID] = appendUnique(s.ipsByClientID[clientID], ip)
+	}
+}
+
+func (s *MemoryStore) EnableByClientID(clientID string) {
+	if clientID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.disabled, clientID)
+	for _, ip := range s.ipsByClientID[clientID] {
+		delete(s.bannedIPs, ip)
+	}
+	delete(s.ipsByClientID, clientID)
+}
+
+func (s *MemoryStore) IsIPDisabled(ip string) (bool, ClientBanRecord) {
+	if ip == "" {
+		return false, ClientBanRecord{Status: StatusEnabled}
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entry, ok := s.bannedIPs[ip]
+	if !ok {
+		return false, ClientBanRecord{Status: StatusEnabled}
+	}
+	return true, ClientBanRecord{
+		ClientID:  entry.clientID,
+		Status:    StatusDisabled,
+		Reason:    entry.reason,
+		Operator:  entry.operator,
+		UpdatedAt: entry.updatedAt,
+	}
+}
+
+func appendUnique(slice []string, val string) []string {
+	for _, v := range slice {
+		if v == val {
+			return slice
+		}
+	}
+	return append(slice, val)
 }
 
 var _ Store = (*MemoryStore)(nil)

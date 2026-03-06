@@ -619,12 +619,19 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	}
 	if svr.clientBanStore != nil {
 		disabled, record := svr.clientBanStore.IsDisabled(effectiveClientID)
+		if !disabled {
+			remoteIP := ctlConn.RemoteAddr().String()
+			if host, _, splitErr := net.SplitHostPort(remoteIP); splitErr == nil {
+				remoteIP = host
+			}
+			disabled, record = svr.clientBanStore.IsIPDisabled(remoteIP)
+		}
 		if disabled {
 			reason := strings.TrimSpace(record.Reason)
 			if reason != "" {
-				return fmt.Errorf("client_id [%s] is disabled: %s", effectiveClientID, reason)
+				return fmt.Errorf("client [%s] is disabled: %s", effectiveClientID, reason)
 			}
-			return fmt.Errorf("client_id [%s] is disabled", effectiveClientID)
+			return fmt.Errorf("client [%s] is disabled", effectiveClientID)
 		}
 	}
 

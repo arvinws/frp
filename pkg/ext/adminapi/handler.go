@@ -94,6 +94,9 @@ func (h *Handler) DisableClient(ctx *httppkg.Context) (any, error) {
 	}
 
 	record, changed := h.banStore.Disable(clientID, req.Reason, req.Operator)
+	if session, ok := h.sessionManager.GetByClientID(clientID); ok && session.RemoteAddr != "" {
+		h.banStore.DisableIP(session.RemoteAddr, clientID, req.Reason, req.Operator)
+	}
 	result := "disabled"
 	if !changed {
 		result = "already_disabled"
@@ -128,6 +131,7 @@ func (h *Handler) EnableClient(ctx *httppkg.Context) (any, error) {
 	}
 
 	record, changed := h.banStore.Enable(clientID, req.Operator)
+	h.banStore.EnableByClientID(clientID)
 	result := "enabled"
 	if !changed {
 		result = "already_enabled"
@@ -207,6 +211,9 @@ func (h *Handler) DisableAndDisconnect(ctx *httppkg.Context) (any, error) {
 	runID := ""
 	disconnectResult := "already_offline"
 	if session, ok := h.sessionManager.GetByClientID(clientID); ok {
+		if session.RemoteAddr != "" {
+			h.banStore.DisableIP(session.RemoteAddr, clientID, req.Reason, req.Operator)
+		}
 		runID = session.RunID
 		disconnectResult = "disconnected"
 		if disconnectOK := h.sessionManager.DisconnectByRunID(runID); !disconnectOK {
