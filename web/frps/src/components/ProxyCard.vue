@@ -47,8 +47,34 @@
           {{ statusText }}
         </div>
 
+        <div v-if="proxy.disabled" class="disabled-badge">
+          {{ t('governance.disabled') }}
+        </div>
+
         <el-popconfirm
-          v-if="proxy.status === 'online'"
+          v-if="proxy.disabled"
+          :title="t('governance.confirmEnableProxy')"
+          :confirm-button-text="t('governance.enableProxy')"
+          :cancel-button-text="t('proxies.cancel')"
+          confirm-button-type="success"
+          width="320"
+          @confirm="handleEnableProxy"
+        >
+          <template #reference>
+            <el-button
+              type="success"
+              plain
+              size="small"
+              :loading="actionLoading"
+              @click.prevent
+            >
+              {{ t('governance.enableProxy') }}
+            </el-button>
+          </template>
+        </el-popconfirm>
+
+        <el-popconfirm
+          v-else-if="proxy.status === 'online'"
           :title="t('governance.confirmDisableProxy')"
           :confirm-button-text="t('governance.disableProxy')"
           :cancel-button-text="t('proxies.cancel')"
@@ -79,7 +105,7 @@ import { useRoute } from 'vue-router'
 import { Top, Bottom } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { formatFileSize } from '../utils/format'
-import { disableProxy } from '../api/admin'
+import { disableProxy, enableProxy } from '../api/admin'
 import type { BaseProxy } from '../utils/proxy'
 import { useI18n } from '../i18n'
 
@@ -99,6 +125,19 @@ const handleDisableProxy = async () => {
   try {
     await disableProxy(props.proxy.name)
     ElMessage.success(t('governance.disableProxySuccess'))
+    emit('refresh')
+  } catch (error: any) {
+    ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+const handleEnableProxy = async () => {
+  actionLoading.value = true
+  try {
+    await enableProxy(props.proxy.name)
+    ElMessage.success(t('governance.enableProxySuccess'))
     emit('refresh')
   } catch (error: any) {
     ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
@@ -270,6 +309,16 @@ const statusText = computed(() => {
 .status-badge.offline {
   background: var(--el-color-danger-light-9);
   color: var(--el-color-danger);
+}
+
+.disabled-badge {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning);
 }
 
 /* Mobile Responsive */

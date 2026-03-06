@@ -50,6 +50,9 @@
                 <span class="status-badge" :class="proxy.status">
                   {{ proxyStatusText }}
                 </span>
+                <span v-if="proxy.disabled" class="disabled-badge">
+                  {{ t('governance.disabled') }}
+                </span>
               </div>
               <div class="header-meta">
                 <router-link
@@ -602,6 +605,20 @@ onMounted(() => {
 .status-badge.offline {
   background: var(--hover-bg);
   color: var(--text-secondary);
+}
+
+.disabled-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+html.dark .disabled-badge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 html.dark .status-badge.online {

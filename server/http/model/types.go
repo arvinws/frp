@@ -108,6 +108,7 @@ type ProxyStatsInfo struct {
 	LastStartTime   string `json:"lastStartTime"`
 	LastCloseTime   string `json:"lastCloseTime"`
 	Status          string `json:"status"`
+	Disabled        bool   `json:"disabled"`
 }
 
 type GetProxyInfoResp struct {
@@ -126,6 +127,7 @@ type GetProxyStatsResp struct {
 	LastStartTime   string `json:"lastStartTime"`
 	LastCloseTime   string `json:"lastCloseTime"`
 	Status          string `json:"status"`
+	Disabled        bool   `json:"disabled"`
 }
 
 // /api/traffic/:name

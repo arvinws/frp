@@ -10,6 +10,7 @@ class BaseProxy {
   lastStartTime: string
   lastCloseTime: string
   status: string
+  disabled: boolean
   user: string
   clientID: string
   addr: string
@@ -46,6 +47,7 @@ class BaseProxy {
     this.lastStartTime = proxyStats.lastStartTime
     this.lastCloseTime = proxyStats.lastCloseTime
     this.status = proxyStats.status
+    this.disabled = proxyStats.disabled || false
     this.user = proxyStats.user || ''
     this.clientID = proxyStats.clientID || ''
 

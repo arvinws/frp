@@ -217,6 +217,9 @@ func (c *Controller) APIProxyByName(ctx *httppkg.Context) (any, error) {
 	} else {
 		proxyInfo.Status = "offline"
 	}
+	if c.banStore != nil {
+		proxyInfo.Disabled = c.banStore.IsProxyDisabled(name)
+	}
 
 	return proxyInfo, nil
 }
@@ -252,6 +255,9 @@ func (c *Controller) getProxyStatsByType(proxyType string) (proxyInfos []*model.
 		proxyInfo.CurConns = ps.CurConns
 		proxyInfo.LastStartTime = ps.LastStartTime
 		proxyInfo.LastCloseTime = ps.LastCloseTime
+		if c.banStore != nil {
+			proxyInfo.Disabled = c.banStore.IsProxyDisabled(ps.Name)
+		}
 		proxyInfos = append(proxyInfos, proxyInfo)
 	}
 	return
@@ -277,6 +283,9 @@ func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName stri
 		proxyInfo.CurConns = ps.CurConns
 		proxyInfo.LastStartTime = ps.LastStartTime
 		proxyInfo.LastCloseTime = ps.LastCloseTime
+		if c.banStore != nil {
+			proxyInfo.Disabled = c.banStore.IsProxyDisabled(proxyName)
+		}
 		code = 200
 	}
 
