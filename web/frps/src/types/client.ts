@@ -17,6 +17,7 @@ export interface ClientInfoData {
 export interface ActionRequest {
   reason?: string
   operator?: string
+  banIP?: boolean
 }
 
 export interface RuleActionResponse {

@@ -48,6 +48,7 @@ func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, audit
 type ActionRequest struct {
 	Reason   string `json:"reason"`
 	Operator string `json:"operator"`
+	BanIP    bool   `json:"banIP"`
 }
 
 type RuleActionResponse struct {
@@ -94,8 +95,10 @@ func (h *Handler) DisableClient(ctx *httppkg.Context) (any, error) {
 	}
 
 	record, changed := h.banStore.Disable(clientID, req.Reason, req.Operator)
-	if session, ok := h.sessionManager.GetByClientID(clientID); ok && session.RemoteAddr != "" {
-		h.banStore.DisableIP(session.RemoteAddr, clientID, req.Reason, req.Operator)
+	if req.BanIP {
+		if session, ok := h.sessionManager.GetByClientID(clientID); ok && session.RemoteAddr != "" {
+			h.banStore.DisableIP(session.RemoteAddr, clientID, req.Reason, req.Operator)
+		}
 	}
 	result := "disabled"
 	if !changed {
@@ -211,7 +214,7 @@ func (h *Handler) DisableAndDisconnect(ctx *httppkg.Context) (any, error) {
 	runID := ""
 	disconnectResult := "already_offline"
 	if session, ok := h.sessionManager.GetByClientID(clientID); ok {
-		if session.RemoteAddr != "" {
+		if req.BanIP && session.RemoteAddr != "" {
 			h.banStore.DisableIP(session.RemoteAddr, clientID, req.Reason, req.Operator)
 		}
 		runID = session.RunID

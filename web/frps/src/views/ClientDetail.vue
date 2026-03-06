@@ -144,6 +144,20 @@
                 {{ t('governance.alsoDisconnectHint') }}
               </p>
             </el-form-item>
+            <el-form-item
+              v-if="dialogAction === 'disable'"
+              class="disconnect-switch-item"
+            >
+              <div class="disconnect-switch-row">
+                <el-switch v-model="alsoBanIP" />
+                <span class="disconnect-switch-label">
+                  {{ t('governance.banIP') }}
+                </span>
+              </div>
+              <p class="disconnect-switch-hint">
+                {{ t('governance.banIPHint') }}
+              </p>
+            </el-form-item>
             <el-form-item :label="t('governance.reason')">
               <el-input
                 v-model="actionForm.reason"
@@ -267,6 +281,7 @@ const dialogAction = ref<GovernanceAction>('disable')
 const actionLoading = ref(false)
 const actionForm = ref({ reason: '', operator: '' })
 const alsoDisconnect = ref(true)
+const alsoBanIP = ref(false)
 
 const dialogTitle = computed(() => {
   if (dialogAction.value === 'disable' && alsoDisconnect.value && client.value?.online) {
@@ -296,6 +311,7 @@ const showActionDialog = (action: GovernanceAction) => {
   dialogAction.value = action
   actionForm.value = { reason: '', operator: '' }
   alsoDisconnect.value = true
+  alsoBanIP.value = false
   dialogVisible.value = true
 }
 
@@ -305,6 +321,7 @@ const executeAction = async () => {
   const body = {
     reason: actionForm.value.reason || undefined,
     operator: actionForm.value.operator || undefined,
+    banIP: dialogAction.value === 'disable' ? alsoBanIP.value || undefined : undefined,
   }
 
   try {
