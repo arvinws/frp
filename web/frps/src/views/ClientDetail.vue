@@ -115,16 +115,6 @@
             >
               {{ t('governance.disconnect') }}
             </el-button>
-            <el-button
-              v-if="!client.disabled && client.online"
-              type="danger"
-              size="small"
-              :icon="CircleClose"
-              :loading="actionLoading"
-              @click="showActionDialog('disableAndDisconnect')"
-            >
-              {{ t('governance.disableAndDisconnect') }}
-            </el-button>
           </div>
         </div>
 
@@ -137,6 +127,23 @@
         >
           <p class="dialog-confirm-text">{{ dialogConfirmText }}</p>
           <el-form label-position="top">
+            <el-form-item
+              v-if="dialogAction === 'disable' && client?.online"
+              class="disconnect-switch-item"
+            >
+              <div class="disconnect-switch-row">
+                <el-switch v-model="alsoDisconnect" />
+                <span class="disconnect-switch-label">
+                  {{ t('governance.alsoDisconnect') }}
+                </span>
+                <el-tag size="small" type="warning">{{
+                  t('governance.recommended')
+                }}</el-tag>
+              </div>
+              <p class="disconnect-switch-hint">
+                {{ t('governance.alsoDisconnectHint') }}
+              </p>
+            </el-form-item>
             <el-form-item :label="t('governance.reason')">
               <el-input
                 v-model="actionForm.reason"
@@ -224,7 +231,6 @@ import {
   Lock,
   Unlock,
   SwitchButton,
-  CircleClose,
 } from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
 import { getClient } from '../api/client'
@@ -255,28 +261,33 @@ const { t } = useI18n()
 const client = ref<Client | null>(null)
 const loading = ref(true)
 
-type GovernanceAction = 'disable' | 'enable' | 'disconnect' | 'disableAndDisconnect'
+type GovernanceAction = 'disable' | 'enable' | 'disconnect'
 const dialogVisible = ref(false)
 const dialogAction = ref<GovernanceAction>('disable')
 const actionLoading = ref(false)
 const actionForm = ref({ reason: '', operator: '' })
+const alsoDisconnect = ref(true)
 
 const dialogTitle = computed(() => {
+  if (dialogAction.value === 'disable' && alsoDisconnect.value && client.value?.online) {
+    return t('governance.disableAndDisconnect')
+  }
   const map: Record<GovernanceAction, string> = {
     disable: t('governance.disable'),
     enable: t('governance.enable'),
     disconnect: t('governance.disconnect'),
-    disableAndDisconnect: t('governance.disableAndDisconnect'),
   }
   return map[dialogAction.value]
 })
 
 const dialogConfirmText = computed(() => {
+  if (dialogAction.value === 'disable' && client.value?.online) {
+    return t('governance.confirmDisableOnline')
+  }
   const map: Record<GovernanceAction, string> = {
     disable: t('governance.confirmDisable'),
     enable: t('governance.confirmEnable'),
     disconnect: t('governance.confirmDisconnect'),
-    disableAndDisconnect: t('governance.confirmDisableAndDisconnect'),
   }
   return map[dialogAction.value]
 })
@@ -284,6 +295,7 @@ const dialogConfirmText = computed(() => {
 const showActionDialog = (action: GovernanceAction) => {
   dialogAction.value = action
   actionForm.value = { reason: '', operator: '' }
+  alsoDisconnect.value = true
   dialogVisible.value = true
 }
 
@@ -296,29 +308,31 @@ const executeAction = async () => {
   }
 
   try {
-    const successMap: Record<GovernanceAction, string> = {
-      disable: t('governance.disableSuccess'),
-      enable: t('governance.enableSuccess'),
-      disconnect: t('governance.disconnectSuccess'),
-      disableAndDisconnect: t('governance.disableAndDisconnectSuccess'),
+    const useDisableAndDisconnect =
+      dialogAction.value === 'disable' && alsoDisconnect.value && client.value.online
+
+    let successMsg: string
+    if (useDisableAndDisconnect) {
+      await disableAndDisconnect(client.value.clientID, body)
+      successMsg = t('governance.disableAndDisconnectSuccess')
+    } else {
+      switch (dialogAction.value) {
+        case 'disable':
+          await disableClient(client.value.clientID, body)
+          successMsg = t('governance.disableSuccess')
+          break
+        case 'enable':
+          await enableClient(client.value.clientID, body)
+          successMsg = t('governance.enableSuccess')
+          break
+        case 'disconnect':
+          await disconnectSession(client.value.runID, body)
+          successMsg = t('governance.disconnectSuccess')
+          break
+      }
     }
 
-    switch (dialogAction.value) {
-      case 'disable':
-        await disableClient(client.value.clientID, body)
-        break
-      case 'enable':
-        await enableClient(client.value.clientID, body)
-        break
-      case 'disconnect':
-        await disconnectSession(client.value.runID, body)
-        break
-      case 'disableAndDisconnect':
-        await disableAndDisconnect(client.value.clientID, body)
-        break
-    }
-
-    ElMessage.success(successMap[dialogAction.value])
+    ElMessage.success(successMsg!)
     dialogVisible.value = false
     await fetchClient()
   } catch (error: any) {
@@ -638,6 +652,29 @@ html.dark .status-badge.banned {
   font-size: 14px;
   color: var(--el-text-color-regular);
   line-height: 1.6;
+}
+
+.disconnect-switch-item {
+  margin-bottom: 12px;
+}
+
+.disconnect-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.disconnect-switch-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.disconnect-switch-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 /* Proxies Card */

@@ -390,14 +390,18 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	inMsg := m.(*msg.NewProxy)
 
 	var err error
-	if ctl.clientBanStore != nil && ctl.loginMsg.ClientID != "" {
-		disabled, record := ctl.clientBanStore.IsDisabled(ctl.loginMsg.ClientID)
+	if ctl.clientBanStore != nil {
+		effectiveID := ctl.loginMsg.ClientID
+		if effectiveID == "" {
+			effectiveID = ctl.loginMsg.RunID
+		}
+		disabled, record := ctl.clientBanStore.IsDisabled(effectiveID)
 		if disabled {
 			reason := strings.TrimSpace(record.Reason)
 			if reason != "" {
-				err = fmt.Errorf("client_id [%s] is disabled: %s", ctl.loginMsg.ClientID, reason)
+				err = fmt.Errorf("client_id [%s] is disabled: %s", effectiveID, reason)
 			} else {
-				err = fmt.Errorf("client_id [%s] is disabled", ctl.loginMsg.ClientID)
+				err = fmt.Errorf("client_id [%s] is disabled", effectiveID)
 			}
 		}
 	}

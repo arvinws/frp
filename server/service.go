@@ -613,14 +613,18 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	if err := authVerifier.VerifyLogin(loginMsg); err != nil {
 		return err
 	}
-	if loginMsg.ClientID != "" && svr.clientBanStore != nil {
-		disabled, record := svr.clientBanStore.IsDisabled(loginMsg.ClientID)
+	effectiveClientID := loginMsg.ClientID
+	if effectiveClientID == "" {
+		effectiveClientID = loginMsg.RunID
+	}
+	if svr.clientBanStore != nil {
+		disabled, record := svr.clientBanStore.IsDisabled(effectiveClientID)
 		if disabled {
 			reason := strings.TrimSpace(record.Reason)
 			if reason != "" {
-				return fmt.Errorf("client_id [%s] is disabled: %s", loginMsg.ClientID, reason)
+				return fmt.Errorf("client_id [%s] is disabled: %s", effectiveClientID, reason)
 			}
-			return fmt.Errorf("client_id [%s] is disabled", loginMsg.ClientID)
+			return fmt.Errorf("client_id [%s] is disabled", effectiveClientID)
 		}
 	}
 
@@ -650,7 +654,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	ctl.clientBanStore = svr.clientBanStore
 	ctl.sessionManager = svr.sessionManager
 	if svr.sessionManager != nil {
-		svr.sessionManager.Register(loginMsg.RunID, loginMsg.ClientID, loginMsg.User, remoteAddr, ctl)
+		svr.sessionManager.Register(loginMsg.RunID, effectiveClientID, loginMsg.User, remoteAddr, ctl)
 	}
 
 	ctl.Start()
