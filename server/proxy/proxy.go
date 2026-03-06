@@ -74,9 +74,10 @@ type BaseProxy struct {
 	loginMsg      *msg.Login
 	configurer    v1.ProxyConfigurer
 
-	mu  sync.RWMutex
-	xl  *xlog.Logger
-	ctx context.Context
+	mu     sync.RWMutex
+	xl     *xlog.Logger
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func (pxy *BaseProxy) GetName() string {
@@ -114,6 +115,7 @@ func (pxy *BaseProxy) GetConfigurer() v1.ProxyConfigurer {
 func (pxy *BaseProxy) Close() {
 	xl := xlog.FromContextSafe(pxy.ctx)
 	xl.Infof("proxy closing")
+	pxy.cancel()
 	for _, l := range pxy.listeners {
 		l.Close()
 	}
@@ -236,6 +238,18 @@ func (pxy *BaseProxy) handleUserTCPConnection(userConn net.Conn) {
 	}
 	defer workConn.Close()
 
+	// Close connections when proxy context is canceled (e.g. proxy disabled).
+	connClosed := make(chan struct{})
+	go func() {
+		select {
+		case <-pxy.ctx.Done():
+			userConn.Close()
+			workConn.Close()
+		case <-connClosed:
+		}
+	}()
+	defer close(connClosed)
+
 	var local io.ReadWriteCloser = workConn
 	xl.Tracef("handler user tcp connection, use_encryption: %t, use_compression: %t",
 		cfg.Transport.UseEncryption, cfg.Transport.UseCompression)
@@ -292,6 +306,7 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 
+	pxyCtx, pxyCancel := context.WithCancel(xlog.NewContext(ctx, xl))
 	basePxy := BaseProxy{
 		name:          configurer.GetBaseConfig().Name,
 		rc:            options.ResourceController,
@@ -302,7 +317,8 @@ func NewProxy(ctx context.Context, options *Options) (pxy Proxy, err error) {
 		encryptionKey: options.EncryptionKey,
 		limiter:       limiter,
 		xl:            xl,
-		ctx:           xlog.NewContext(ctx, xl),
+		ctx:           pxyCtx,
+		cancel:        pxyCancel,
 		userInfo:      options.UserInfo,
 		loginMsg:      options.LoginMsg,
 		configurer:    configurer,
