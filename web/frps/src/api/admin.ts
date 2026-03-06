@@ -27,6 +27,20 @@ export const disconnectSession = (runID: string, body?: ActionRequest) => {
   )
 }
 
+export const disableProxy = (proxyName: string, body?: ActionRequest) => {
+  return http.post<{ proxyName: string; result: string }>(
+    `../api/admin/proxies/${encodeURIComponent(proxyName)}/disable`,
+    body,
+  )
+}
+
+export const enableProxy = (proxyName: string, body?: ActionRequest) => {
+  return http.post<{ proxyName: string; result: string }>(
+    `../api/admin/proxies/${encodeURIComponent(proxyName)}/enable`,
+    body,
+  )
+}
+
 export const disableAndDisconnect = (
   clientID: string,
   body?: ActionRequest,

@@ -46,16 +46,40 @@
         <div class="status-badge" :class="proxy.status">
           {{ statusText }}
         </div>
+
+        <el-popconfirm
+          v-if="proxy.status === 'online'"
+          :title="t('governance.confirmDisableProxy')"
+          :confirm-button-text="t('governance.disableProxy')"
+          :cancel-button-text="t('proxies.cancel')"
+          confirm-button-type="danger"
+          width="320"
+          @confirm="handleDisableProxy"
+        >
+          <template #reference>
+            <el-button
+              type="danger"
+              plain
+              size="small"
+              :loading="actionLoading"
+              @click.prevent
+            >
+              {{ t('governance.disableProxy') }}
+            </el-button>
+          </template>
+        </el-popconfirm>
       </div>
     </div>
   </router-link>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Top, Bottom } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { formatFileSize } from '../utils/format'
+import { disableProxy } from '../api/admin'
 import type { BaseProxy } from '../utils/proxy'
 import { useI18n } from '../i18n'
 
@@ -64,9 +88,24 @@ interface Props {
   showType?: boolean
 }
 
+const emit = defineEmits<{ refresh: [] }>()
 const props = defineProps<Props>()
 const route = useRoute()
 const { t } = useI18n()
+const actionLoading = ref(false)
+
+const handleDisableProxy = async () => {
+  actionLoading.value = true
+  try {
+    await disableProxy(props.proxy.name)
+    ElMessage.success(t('governance.disableProxySuccess'))
+    emit('refresh')
+  } catch (error: any) {
+    ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
+  } finally {
+    actionLoading.value = false
+  }
+}
 
 const proxyLink = computed(() => {
   const base = `/proxy/${props.proxy.name}`

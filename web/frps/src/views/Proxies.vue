@@ -86,6 +86,7 @@
           v-for="proxy in filteredProxies"
           :key="proxy.name"
           :proxy="proxy"
+          @refresh="fetchData"
         />
       </div>
       <div v-else-if="!loading" class="empty-state">

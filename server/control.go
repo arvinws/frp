@@ -88,6 +88,21 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	return
 }
 
+func (cm *ControlManager) CloseProxyByName(name string) bool {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	for _, ctl := range cm.ctlsByRunID {
+		ctl.mu.Lock()
+		pxy, ok := ctl.proxies[name]
+		ctl.mu.Unlock()
+		if ok {
+			_ = ctl.CloseProxy(&msg.CloseProxy{ProxyName: pxy.GetName()})
+			return true
+		}
+	}
+	return false
+}
+
 func (cm *ControlManager) Close() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -410,6 +425,9 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 			} else {
 				err = fmt.Errorf("client [%s] is disabled", effectiveID)
 			}
+		}
+		if err == nil && ctl.clientBanStore.IsProxyDisabled(inMsg.ProxyName) {
+			err = fmt.Errorf("proxy [%s] is disabled", inMsg.ProxyName)
 		}
 	}
 

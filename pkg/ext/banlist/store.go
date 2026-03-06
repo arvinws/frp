@@ -44,6 +44,10 @@ type Store interface {
 	DisableIP(ip, clientID, reason, operator string)
 	EnableByClientID(clientID string)
 	IsIPDisabled(ip string) (bool, ClientBanRecord)
+
+	DisableProxy(proxyName, reason, operator string)
+	EnableProxy(proxyName string)
+	IsProxyDisabled(proxyName string) bool
 }
 
 // MemoryStore keeps disabled records in memory.
@@ -53,6 +57,8 @@ type MemoryStore struct {
 
 	bannedIPs     map[string]ipBanEntry // ip -> ban info
 	ipsByClientID map[string][]string   // clientID -> []ip
+
+	disabledProxies map[string]banEntry // proxyName -> ban info
 }
 
 type banEntry struct {
@@ -70,9 +76,10 @@ type ipBanEntry struct {
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		disabled:      make(map[string]banEntry),
-		bannedIPs:     make(map[string]ipBanEntry),
-		ipsByClientID: make(map[string][]string),
+		disabled:        make(map[string]banEntry),
+		bannedIPs:       make(map[string]ipBanEntry),
+		ipsByClientID:   make(map[string][]string),
+		disabledProxies: make(map[string]banEntry),
 	}
 }
 
@@ -208,6 +215,38 @@ func (s *MemoryStore) IsIPDisabled(ip string) (bool, ClientBanRecord) {
 		Operator:  entry.operator,
 		UpdatedAt: entry.updatedAt,
 	}
+}
+
+func (s *MemoryStore) DisableProxy(proxyName, reason, operator string) {
+	if proxyName == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.disabledProxies[proxyName] = banEntry{
+		reason:    reason,
+		operator:  operator,
+		updatedAt: time.Now(),
+	}
+}
+
+func (s *MemoryStore) EnableProxy(proxyName string) {
+	if proxyName == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.disabledProxies, proxyName)
+}
+
+func (s *MemoryStore) IsProxyDisabled(proxyName string) bool {
+	if proxyName == "" {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.disabledProxies[proxyName]
+	return ok
 }
 
 func appendUnique(slice []string, val string) []string {

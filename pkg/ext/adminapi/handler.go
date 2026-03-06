@@ -28,13 +28,18 @@ import (
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
+type ProxyCloser interface {
+	CloseProxyByName(name string) bool
+}
+
 type Handler struct {
 	banStore       banlist.Store
 	sessionManager *clientmgr.Manager
 	auditRecorder  audit.Recorder
+	proxyCloser    ProxyCloser
 }
 
-func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, auditRecorder audit.Recorder) *Handler {
+func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, auditRecorder audit.Recorder, proxyCloser ProxyCloser) *Handler {
 	if auditRecorder == nil {
 		auditRecorder = noopRecorder{}
 	}
@@ -42,6 +47,7 @@ func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, audit
 		banStore:       banStore,
 		sessionManager: sessionManager,
 		auditRecorder:  auditRecorder,
+		proxyCloser:    proxyCloser,
 	}
 }
 
@@ -235,6 +241,68 @@ func (h *Handler) DisableAndDisconnect(ctx *httppkg.Context) (any, error) {
 		UpdatedAt:        toUnix(record.UpdatedAt),
 		RunID:            runID,
 		DisconnectResult: disconnectResult,
+	}, nil
+}
+
+type ProxyActionResponse struct {
+	ProxyName string `json:"proxyName"`
+	Result    string `json:"result"`
+}
+
+// DisableProxy handles POST /api/admin/proxies/{name}/disable.
+func (h *Handler) DisableProxy(ctx *httppkg.Context) (any, error) {
+	if h.banStore == nil {
+		return nil, fmt.Errorf("banlist store unavailable")
+	}
+
+	proxyName := strings.TrimSpace(ctx.Param("name"))
+	if proxyName == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "missing proxy name")
+	}
+
+	req, err := parseActionRequest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	h.banStore.DisableProxy(proxyName, req.Reason, req.Operator)
+
+	result := "disabled"
+	if h.proxyCloser != nil {
+		if h.proxyCloser.CloseProxyByName(proxyName) {
+			result = "disabled_and_closed"
+		}
+	}
+	h.recordAudit("disable_proxy", "", "", req.Operator, result, proxyName)
+
+	return ProxyActionResponse{
+		ProxyName: proxyName,
+		Result:    result,
+	}, nil
+}
+
+// EnableProxy handles POST /api/admin/proxies/{name}/enable.
+func (h *Handler) EnableProxy(ctx *httppkg.Context) (any, error) {
+	if h.banStore == nil {
+		return nil, fmt.Errorf("banlist store unavailable")
+	}
+
+	proxyName := strings.TrimSpace(ctx.Param("name"))
+	if proxyName == "" {
+		return nil, httppkg.NewError(http.StatusBadRequest, "missing proxy name")
+	}
+
+	req, err := parseActionRequest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	h.banStore.EnableProxy(proxyName)
+	h.recordAudit("enable_proxy", "", "", req.Operator, "enabled", proxyName)
+
+	return ProxyActionResponse{
+		ProxyName: proxyName,
+		Result:    "enabled",
 	}, nil
 }
 

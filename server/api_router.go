@@ -38,7 +38,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	}
 
 	apiController := dashboardapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager, svr.clientBanStore)
-	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder)
+	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder, svr.ctlManager)
 
 	// apis
 	subRouter.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(apiController.APIServerInfo)).Methods("GET")
@@ -55,6 +55,8 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 		"/api/admin/clients/{clientID}/disable-and-disconnect",
 		httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableAndDisconnect),
 	).Methods("POST")
+	subRouter.HandleFunc("/api/admin/proxies/{name}/disable", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableProxy)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/proxies/{name}/enable", httppkg.MakeHTTPHandlerFunc(governanceHandler.EnableProxy)).Methods("POST")
 	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
 
 	// view

@@ -211,6 +211,7 @@
                 :key="proxy.name"
                 :proxy="proxy"
                 show-type
+                @refresh="fetchProxies"
               />
             </div>
             <div v-else-if="clientProxies.length > 0" class="empty-state">
