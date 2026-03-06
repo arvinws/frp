@@ -58,6 +58,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/admin/proxies/{name}/disable", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableProxy)).Methods("POST")
 	subRouter.HandleFunc("/api/admin/proxies/{name}/enable", httppkg.MakeHTTPHandlerFunc(governanceHandler.EnableProxy)).Methods("POST")
 	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
+	subRouter.HandleFunc("/api/admin/server/restart", httppkg.MakeHTTPHandlerFunc(svr.APIRestart)).Methods("POST")
 
 	// view
 	subRouter.Handle("/favicon.ico", http.FileServer(helper.AssetsFS)).Methods("GET")

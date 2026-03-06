@@ -105,6 +105,11 @@ const messages = {
       confirmEnableProxy: 'Are you sure to enable this proxy? The client will be disconnected and reconnected to re-register.',
       disableProxySuccess: 'Proxy disabled',
       enableProxySuccess: 'Proxy enabled',
+      restartServer: 'Restart Server',
+      confirmRestart: 'Are you sure to restart the server? All client connections will be temporarily disconnected.',
+      restarting: 'Server restarting, waiting for recovery...',
+      restartSuccess: 'Server restarted successfully',
+      restartFailed: 'Server restart failed or timed out. Please check the server status manually.',
     },
     proxies: {
       title: 'Proxies',
@@ -255,6 +260,11 @@ const messages = {
       confirmEnableProxy: '确定要启用该代理吗？将断开客户端连接并重连以重新注册代理。',
       disableProxySuccess: '代理已禁用',
       enableProxySuccess: '代理已启用',
+      restartServer: '重启服务端',
+      confirmRestart: '确定要重启服务端吗？所有客户端连接将暂时断开。',
+      restarting: '服务端重启中，等待恢复...',
+      restartSuccess: '服务端重启成功',
+      restartFailed: '服务端重启失败或超时，请手动检查服务状态。',
     },
     proxies: {
       title: '代理',

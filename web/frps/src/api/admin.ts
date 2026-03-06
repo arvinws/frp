@@ -41,6 +41,12 @@ export const enableProxy = (proxyName: string, body?: ActionRequest) => {
   )
 }
 
+export const restartServer = () => {
+  return http.post<{ code: number; msg: string }>(
+    '../api/admin/server/restart',
+  )
+}
+
 export const disableAndDisconnect = (
   clientID: string,
   body?: ActionRequest,

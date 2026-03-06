@@ -103,7 +103,28 @@
       <template #header>
         <div class="card-header">
           <span class="card-title">{{ t('overview.serverConfiguration') }}</span>
-          <el-tag size="small" type="success">v{{ data.version }}</el-tag>
+          <div class="header-actions">
+            <el-tag size="small" type="success">v{{ data.version }}</el-tag>
+            <el-popconfirm
+              :title="t('governance.confirmRestart')"
+              :confirm-button-text="t('governance.restartServer')"
+              :cancel-button-text="t('proxies.cancel')"
+              confirm-button-type="warning"
+              width="360"
+              @confirm="handleRestart"
+            >
+              <template #reference>
+                <el-button
+                  type="warning"
+                  plain
+                  size="small"
+                  :loading="restarting"
+                >
+                  {{ restarting ? t('governance.restarting') : t('governance.restartServer') }}
+                </el-button>
+              </template>
+            </el-popconfirm>
+          </div>
         </div>
       </template>
       <div class="config-grid">
@@ -167,9 +188,11 @@ import { formatFileSize } from '../utils/format'
 import { Download, Upload } from '@element-plus/icons-vue'
 import StatCard from '../components/StatCard.vue'
 import { getServerInfo } from '../api/server'
+import { restartServer } from '../api/admin'
 import { useI18n } from '../i18n'
 
 const { t } = useI18n()
+const restarting = ref(false)
 
 const data = ref({
   version: '',
@@ -246,6 +269,42 @@ const fetchData = async () => {
   }
 }
 
+const handleRestart = async () => {
+  restarting.value = true
+  try {
+    await restartServer()
+  } catch {
+    // Expected: server shuts down before response arrives
+  }
+
+  const maxWait = 30_000
+  const interval = 2_000
+  const start = Date.now()
+
+  const poll = () => {
+    if (Date.now() - start > maxWait) {
+      restarting.value = false
+      ElMessage.error(t('governance.restartFailed'))
+      return
+    }
+    fetch('../healthz')
+      .then((res) => {
+        if (res.ok) {
+          restarting.value = false
+          ElMessage.success(t('governance.restartSuccess'))
+          fetchData()
+        } else {
+          setTimeout(poll, interval)
+        }
+      })
+      .catch(() => {
+        setTimeout(poll, interval)
+      })
+  }
+
+  setTimeout(poll, 3000)
+}
+
 onMounted(() => {
   fetchData()
 })
@@ -290,6 +349,12 @@ html.dark .config-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .card-title {

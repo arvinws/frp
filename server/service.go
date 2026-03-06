@@ -439,6 +439,15 @@ func (svr *Service) Close() error {
 	return nil
 }
 
+func (svr *Service) APIRestart(ctx *httppkg.Context) (any, error) {
+	time.AfterFunc(500*time.Millisecond, func() {
+		log.Infof("server restarting by admin request")
+		svr.Close()
+		os.Exit(0)
+	})
+	return httppkg.GeneralResponse{Code: 200, Msg: "restarting"}, nil
+}
+
 func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
 	xl := xlog.FromContextSafe(ctx)
 
