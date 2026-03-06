@@ -1,0 +1,53 @@
+name: Fork Auto Package
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-auto-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build web assets (frps)
+        run: make build
+        working-directory: web/frps
+
+      - name: Build web assets (frpc)
+        run: make build
+        working-directory: web/frpc
+
+      - name: Build cross-platform packages
+        run: ./package.sh
+
+      - name: Upload packages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frp-packages-${{ github.run_number }}-${{ github.sha }}
+          path: release/packages/*
+          if-no-files-found: error
+          retention-days: 14

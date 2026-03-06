@@ -19,9 +19,10 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	govadminapi "github.com/fatedier/frp/pkg/ext/adminapi"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
-	adminapi "github.com/fatedier/frp/server/http"
+	dashboardapi "github.com/fatedier/frp/server/http"
 )
 
 func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) {
@@ -36,7 +37,8 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 		subRouter.Handle("/metrics", promhttp.Handler())
 	}
 
-	apiController := adminapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager)
+	apiController := dashboardapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager)
+	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder)
 
 	// apis
 	subRouter.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(apiController.APIServerInfo)).Methods("GET")
@@ -46,6 +48,10 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/traffic/{name}", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyTraffic)).Methods("GET")
 	subRouter.HandleFunc("/api/clients", httppkg.MakeHTTPHandlerFunc(apiController.APIClientList)).Methods("GET")
 	subRouter.HandleFunc("/api/clients/{key}", httppkg.MakeHTTPHandlerFunc(apiController.APIClientDetail)).Methods("GET")
+	subRouter.HandleFunc("/api/admin/clients/{clientID}/disable", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableClient)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/clients/{clientID}/enable", httppkg.MakeHTTPHandlerFunc(governanceHandler.EnableClient)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/sessions/{runID}/disconnect", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisconnectSession)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/clients/{clientID}/disable-and-disconnect", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableAndDisconnect)).Methods("POST")
 	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
 
 	// view

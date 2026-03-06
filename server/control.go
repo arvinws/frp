@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,6 +30,8 @@ import (
 	"github.com/fatedier/frp/pkg/config"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	pkgerr "github.com/fatedier/frp/pkg/errors"
+	"github.com/fatedier/frp/pkg/ext/banlist"
+	"github.com/fatedier/frp/pkg/ext/clientmgr"
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/transport"
@@ -149,6 +152,8 @@ type Control struct {
 	serverCfg *v1.ServerConfig
 
 	clientRegistry *registry.ClientRegistry
+	clientBanStore banlist.Store
+	sessionManager *clientmgr.Manager
 
 	xl     *xlog.Logger
 	ctx    context.Context
@@ -361,7 +366,12 @@ func (ctl *Control) worker() {
 	}
 
 	metrics.Server.CloseClient()
-	ctl.clientRegistry.MarkOfflineByRunID(ctl.runID)
+	if ctl.clientRegistry != nil {
+		ctl.clientRegistry.MarkOfflineByRunID(ctl.runID)
+	}
+	if ctl.sessionManager != nil {
+		ctl.sessionManager.Unregister(ctl.runID)
+	}
 	xl.Infof("client exit success")
 	close(ctl.doneCh)
 }
@@ -379,19 +389,36 @@ func (ctl *Control) handleNewProxy(m msg.Message) {
 	xl := ctl.xl
 	inMsg := m.(*msg.NewProxy)
 
-	content := &plugin.NewProxyContent{
-		User: plugin.UserInfo{
-			User:  ctl.loginMsg.User,
-			Metas: ctl.loginMsg.Metas,
-			RunID: ctl.loginMsg.RunID,
-		},
-		NewProxy: *inMsg,
+	var err error
+	if ctl.clientBanStore != nil && ctl.loginMsg.ClientID != "" {
+		disabled, record := ctl.clientBanStore.IsDisabled(ctl.loginMsg.ClientID)
+		if disabled {
+			reason := strings.TrimSpace(record.Reason)
+			if reason != "" {
+				err = fmt.Errorf("client_id [%s] is disabled: %s", ctl.loginMsg.ClientID, reason)
+			} else {
+				err = fmt.Errorf("client_id [%s] is disabled", ctl.loginMsg.ClientID)
+			}
+		}
 	}
+
 	var remoteAddr string
-	retContent, err := ctl.pluginManager.NewProxy(content)
 	if err == nil {
-		inMsg = &retContent.NewProxy
-		remoteAddr, err = ctl.RegisterProxy(inMsg)
+		content := &plugin.NewProxyContent{
+			User: plugin.UserInfo{
+				User:  ctl.loginMsg.User,
+				Metas: ctl.loginMsg.Metas,
+				RunID: ctl.loginMsg.RunID,
+			},
+			NewProxy: *inMsg,
+		}
+		retContent, pluginErr := ctl.pluginManager.NewProxy(content)
+		if pluginErr == nil {
+			inMsg = &retContent.NewProxy
+			remoteAddr, err = ctl.RegisterProxy(inMsg)
+		} else {
+			err = pluginErr
+		}
 	}
 
 	// register proxy in this control

@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatedier/golib/crypto"
@@ -33,6 +34,9 @@ import (
 
 	"github.com/fatedier/frp/pkg/auth"
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/ext/audit"
+	"github.com/fatedier/frp/pkg/ext/banlist"
+	"github.com/fatedier/frp/pkg/ext/clientmgr"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
@@ -99,6 +103,9 @@ type Service struct {
 
 	// Track logical clients keyed by user.clientID (runID fallback when raw clientID is empty).
 	clientRegistry *registry.ClientRegistry
+	clientBanStore banlist.Store
+	sessionManager *clientmgr.Manager
+	auditRecorder  audit.Recorder
 
 	// Manage all proxies
 	pxyManager *proxy.Manager
@@ -161,6 +168,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	svr := &Service{
 		ctlManager:     NewControlManager(),
 		clientRegistry: registry.NewClientRegistry(),
+		clientBanStore: banlist.NewMemoryStore(),
+		sessionManager: clientmgr.NewManager(),
+		auditRecorder:  audit.NewMemoryRecorder(),
 		pxyManager:     proxy.NewManager(),
 		pluginManager:  plugin.NewManager(),
 		rc: &controller.ResourceController{
@@ -603,6 +613,16 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 	if err := authVerifier.VerifyLogin(loginMsg); err != nil {
 		return err
 	}
+	if loginMsg.ClientID != "" && svr.clientBanStore != nil {
+		disabled, record := svr.clientBanStore.IsDisabled(loginMsg.ClientID)
+		if disabled {
+			reason := strings.TrimSpace(record.Reason)
+			if reason != "" {
+				return fmt.Errorf("client_id [%s] is disabled: %s", loginMsg.ClientID, reason)
+			}
+			return fmt.Errorf("client_id [%s] is disabled", loginMsg.ClientID)
+		}
+	}
 
 	// TODO(fatedier): use SessionContext
 	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, svr.auth.EncryptionKey(), ctlConn, !internal, loginMsg, svr.cfg)
@@ -627,6 +647,11 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		return fmt.Errorf("client_id [%s] for user [%s] is already online", loginMsg.ClientID, loginMsg.User)
 	}
 	ctl.clientRegistry = svr.clientRegistry
+	ctl.clientBanStore = svr.clientBanStore
+	ctl.sessionManager = svr.sessionManager
+	if svr.sessionManager != nil {
+		svr.sessionManager.Register(loginMsg.RunID, loginMsg.ClientID, loginMsg.User, remoteAddr, ctl)
+	}
 
 	ctl.Start()
 
