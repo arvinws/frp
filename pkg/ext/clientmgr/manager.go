@@ -26,18 +26,18 @@ type SessionController interface {
 
 // OnlineSession stores runtime metadata for a connected client session.
 type OnlineSession struct {
-	RunID      string    `json:"runID"`
-	ClientID   string    `json:"clientID"`
-	User       string    `json:"user,omitempty"`
+	RunID       string    `json:"runID"`
+	ClientID    string    `json:"clientID"`
+	User        string    `json:"user,omitempty"`
 	ConnectedAt time.Time `json:"connectedAt"`
-	RemoteAddr string    `json:"remoteAddr,omitempty"`
+	RemoteAddr  string    `json:"remoteAddr,omitempty"`
 
 	controller SessionController `json:"-"`
 }
 
 // Manager indexes online sessions by runID and clientID.
 type Manager struct {
-	mu             sync.RWMutex
+	mu              sync.RWMutex
 	sessionsByRunID map[string]*OnlineSession
 	runIDByClientID map[string]string
 }
@@ -148,7 +148,7 @@ func (s *OnlineSession) snapshot() OnlineSession {
 	if s == nil {
 		return OnlineSession{}
 	}
-	copy := *s
-	copy.controller = nil
-	return copy
+	out := *s
+	out.controller = nil
+	return out
 }

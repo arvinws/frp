@@ -51,7 +51,10 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter.HandleFunc("/api/admin/clients/{clientID}/disable", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableClient)).Methods("POST")
 	subRouter.HandleFunc("/api/admin/clients/{clientID}/enable", httppkg.MakeHTTPHandlerFunc(governanceHandler.EnableClient)).Methods("POST")
 	subRouter.HandleFunc("/api/admin/sessions/{runID}/disconnect", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisconnectSession)).Methods("POST")
-	subRouter.HandleFunc("/api/admin/clients/{clientID}/disable-and-disconnect", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableAndDisconnect)).Methods("POST")
+	subRouter.HandleFunc(
+		"/api/admin/clients/{clientID}/disable-and-disconnect",
+		httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableAndDisconnect),
+	).Methods("POST")
 	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
 
 	// view
