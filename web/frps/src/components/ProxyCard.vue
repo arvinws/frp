@@ -136,7 +136,9 @@ const handleDisableProxy = async () => {
 const handleEnableProxy = async () => {
   actionLoading.value = true
   try {
-    await enableProxy(props.proxy.name)
+    await enableProxy(props.proxy.name, {
+      clientID: props.proxy.clientID || undefined,
+    })
     ElMessage.success(t('governance.enableProxySuccess'))
     emit('refresh')
   } catch (error: any) {

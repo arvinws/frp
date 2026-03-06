@@ -55,6 +55,7 @@ type ActionRequest struct {
 	Reason   string `json:"reason"`
 	Operator string `json:"operator"`
 	BanIP    bool   `json:"banIP"`
+	ClientID string `json:"clientID"`
 }
 
 type RuleActionResponse struct {
@@ -245,8 +246,9 @@ func (h *Handler) DisableAndDisconnect(ctx *httppkg.Context) (any, error) {
 }
 
 type ProxyActionResponse struct {
-	ProxyName string `json:"proxyName"`
-	Result    string `json:"result"`
+	ProxyName        string `json:"proxyName"`
+	Result           string `json:"result"`
+	DisconnectResult string `json:"disconnectResult,omitempty"`
 }
 
 // DisableProxy handles POST /api/admin/proxies/{name}/disable.
@@ -298,12 +300,28 @@ func (h *Handler) EnableProxy(ctx *httppkg.Context) (any, error) {
 	}
 
 	h.banStore.EnableProxy(proxyName)
-	h.recordAudit("enable_proxy", "", "", req.Operator, "enabled", proxyName)
 
-	return ProxyActionResponse{
+	resp := ProxyActionResponse{
 		ProxyName: proxyName,
 		Result:    "enabled",
-	}, nil
+	}
+
+	clientID := strings.TrimSpace(req.ClientID)
+	if clientID != "" && h.sessionManager != nil {
+		if session, ok := h.sessionManager.GetByClientID(clientID); ok {
+			if h.sessionManager.DisconnectByRunID(session.RunID) {
+				resp.DisconnectResult = "disconnected"
+			} else {
+				resp.DisconnectResult = "already_offline"
+			}
+		} else {
+			resp.DisconnectResult = "client_not_found"
+		}
+	}
+
+	h.recordAudit("enable_proxy", clientID, "", req.Operator, resp.Result, proxyName)
+
+	return resp, nil
 }
 
 func parseActionRequest(ctx *httppkg.Context) (ActionRequest, error) {
