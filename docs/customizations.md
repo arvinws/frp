@@ -28,6 +28,9 @@
   └─ POST /api/admin/proxies/{name}/disable
        ├─ banStore.DisableProxy(name)      # 加入代理禁用名单
        ├─ ctlManager.CloseProxyByName(name) # 关闭当前在线代理
+       │    └─ pxy.Close()
+       │         ├─ cancel context → 终止所有活跃连接
+       │         └─ 关闭端口监听器
        └─ 记录审计日志
 
 客户端重连/重载后尝试注册该代理
@@ -39,29 +42,42 @@
 
 管理员启用该代理
   └─ POST /api/admin/proxies/{name}/enable
-       └─ banStore.EnableProxy(name)       # 从禁用名单移除
-       # 客户端下次重连/重载后可恢复注册
+       ├─ banStore.EnableProxy(name)       # 从禁用名单移除
+       ├─ 如果请求包含 clientID：
+       │    └─ sessionManager 断开该客户端连接
+       │         → 客户端自动重连并重新注册所有代理
+       └─ 记录审计日志
 ```
 
 ### 2.2 管理 API
 
 #### POST `/api/admin/proxies/{name}/disable`
 
-关闭指定在线代理并加入禁用名单，阻止重新注册。
+关闭指定在线代理并加入禁用名单，阻止重新注册。已建立的活跃连接会被立即终止。
 
 - 请求体：`{ "reason": "string", "operator": "string" }`（均可选）
 - 响应：`{ "proxyName", "result" }`（result: `disabled_and_closed` 或 `disabled`）
 
 #### POST `/api/admin/proxies/{name}/enable`
 
-从禁用名单移除，客户端重连/重载后恢复注册。
+从禁用名单移除，并断开关联客户端连接触发重连，使代理自动恢复注册。
 
-- 响应：`{ "proxyName", "result": "enabled" }`
+- 请求体：`{ "clientID": "string" }`（可选，传入后自动断开该客户端触发重连）
+- 响应：`{ "proxyName", "result": "enabled", "disconnectResult": "disconnected" | "already_offline" | "client_not_found" }`
 
 ### 2.3 前端交互
 
-- 代理列表页和客户端详情页的 ProxyCard 上，在线代理显示「禁用代理」按钮
-- 点击后弹出确认框，确认即关闭 + 禁用
+**ProxyCard 按钮逻辑：**
+
+| 代理状态 | 显示的按钮 |
+|---------|-----------|
+| 在线 + 未禁用 | 「禁用代理」（红色） |
+| 已禁用（在线或离线） | 「已禁用」标签 + 「启用代理」（绿色） |
+| 离线 + 未禁用 | 无操作按钮 |
+
+- 禁用：确认后关闭代理 + 终止活跃连接 + 加入禁用名单
+- 启用：确认后解除禁用 + 断开客户端连接触发重连 + 代理自动恢复
+- 代理详情页同样显示「已禁用」状态标签
 - 操作完成后自动刷新代理列表
 
 ---
@@ -284,18 +300,26 @@ type Store interface {
 | `server/service.go` | `RegisterControl` | 登录禁用检查（clientID + IP）+ 会话注册 |
 | `server/control.go` | `handleNewProxy` | 客户端禁用检查 + 代理名称禁用检查 |
 | `server/control.go` | `ControlManager.CloseProxyByName` | 按名称查找并关闭在线代理 |
+| `server/proxy/proxy.go` | `BaseProxy.Close` | 取消 context 终止活跃连接 + 关闭监听器 |
+| `server/proxy/proxy.go` | `handleUserTCPConnection` | 监听 context 取消，主动关闭隧道连接 |
 | `server/control.go` | `worker` 退出 | 会话注销 |
 | `server/api_router.go` | `registerRouteHandlers` | 全部治理 API 路由注册 |
 | `server/http/controller.go` | `buildClientInfoResp` | 客户端禁用状态查询 |
 | `server/registry/registry.go` | `MarkOfflineByRunID` | 离线时保留条目（不删除） |
 
-### 5.4 ClientInfoResp 扩展
+### 5.4 API 响应扩展
 
 ```go
 type ClientInfoResp struct {
     // ... 原有字段 ...
     Online   bool `json:"online"`
     Disabled bool `json:"disabled"`
+}
+
+type ProxyStatsInfo struct {
+    // ... 原有字段 ...
+    Status   string `json:"status"`
+    Disabled bool   `json:"disabled"`   // 是否被管理员禁用
 }
 ```
 
@@ -311,15 +335,17 @@ Vue 3 + TypeScript + Element Plus + Vite，与原 Dashboard 一致。
 
 | 文件 | 变更类型 | 内容 |
 |------|---------|------|
-| `src/types/client.ts` | 修改 | `ClientInfoData` 新增 `disabled`、`banIP` + 治理 API 类型 |
+| `src/types/client.ts` | 修改 | `ClientInfoData` 新增 `disabled`、`banIP`；`ActionRequest` 新增 `clientID` + 治理 API 类型 |
 | `src/utils/client.ts` | 修改 | `Client` 类新增 `disabled` 属性 |
+| `src/utils/proxy.ts` | 修改 | `BaseProxy` 类新增 `disabled` 属性 |
 | `src/api/admin.ts` | **新增** | 封装 6 个治理 API（客户端 4 个 + 代理 2 个） |
 | `src/i18n/index.ts` | 修改 | `governance` 命名空间中英文翻译 |
 | `src/components/ClientCard.vue` | 修改 | 禁用状态标签 + 指示灯适配 |
-| `src/components/ProxyCard.vue` | 修改 | 在线代理「禁用代理」按钮 |
+| `src/components/ProxyCard.vue` | 修改 | 代理「禁用」/「启用」按钮 + 已禁用标签 |
 | `src/views/Clients.vue` | 修改 | 「已禁用」筛选 tab |
 | `src/views/ClientDetail.vue` | 修改 | 客户端治理按钮 + 对话框 + 自动刷新 |
 | `src/views/Proxies.vue` | 修改 | ProxyCard 禁用后自动刷新 |
+| `src/views/ProxyDetail.vue` | 修改 | 代理详情页显示「已禁用」标签 |
 
 ---
 
@@ -352,6 +378,9 @@ git push origin --tags
 | `v0.68.0-arvin.5` | IP 封禁机制 + 离线客户端保留 |
 | `v0.68.0-arvin.6` | IP 封禁改为可选，避免误封 |
 | `v0.68.0-arvin.7` | **代理级别禁用/启用功能** |
+| `v0.68.0-arvin.8` | 代理列表/详情页显示禁用状态 + 启用代理按钮 |
+| `v0.68.0-arvin.9` | 启用代理时自动断开客户端触发重连，使代理立即恢复 |
+| `v0.68.0-arvin.10` | 禁用代理时终止已建立的活跃连接（context 取消机制） |
 
 ---
 
@@ -385,7 +414,7 @@ git push origin dev --force-with-lease
 | `server/http/controller.go` | `buildClientInfoResp` / `NewController` 签名 |
 | `server/http/model/types.go` | `ClientInfoResp` 结构体字段 |
 | `server/registry/` | `ClientInfo.ClientID()` 回退逻辑、`MarkOfflineByRunID` |
-| `server/proxy/` | `Proxy` 接口、`Manager` |
+| `server/proxy/proxy.go` | `Proxy` 接口、`Manager`、`BaseProxy.Close` / `handleUserTCPConnection` context 取消机制 |
 | `web/frps/` | 前端路由、API 层、组件结构 |
 | `pkg/msg/msg.go` | `Login` 消息的 `ClientID` / `RunID` 字段 |
 
@@ -396,8 +425,9 @@ git push origin dev --force-with-lease
 | 正常客户端登录 | 成功 | 未禁用时不受影响 |
 | 已禁用客户端登录 | 被拒绝 | 检查审计日志 |
 | 已在线客户端新建代理 | 被拒绝 | 验证 `control.go` hook |
-| 禁用单条代理 | 该代理关闭，其他不受影响 | 代理级别治理 |
-| 启用代理后客户端重连 | 代理恢复注册 | |
+| 禁用单条代理 | 该代理关闭 + 活跃连接终止，其他不受影响 | 代理级别治理 |
+| 禁用代理后检查连接数 | 连接数归零，流量停止 | 验证 context 取消 |
+| 启用代理 | 代理自动恢复在线（客户端被断开重连） | 启用时传 clientID |
 | 断开当前 runID | 连接断开 | 不改变禁用状态 |
 | 禁用并断开客户端 | 先禁用再断开 | 客户端无法立即重连 |
 | 启用客户端后重新登录 | 成功 | 规则恢复 |
@@ -469,19 +499,21 @@ server/
 ├── api_router.go           # Hook: 全部治理路由注册
 ├── registry/registry.go    # 离线客户端保留（不删除）
 └── http/
-    ├── controller.go       # buildClientInfoResp 增加 disabled 查询
-    └── model/types.go      # ClientInfoResp 增加 Disabled 字段
+    ├── controller.go       # buildClientInfoResp / getProxyStats 增加 disabled 查询
+    └── model/types.go      # ClientInfoResp / ProxyStatsInfo 增加 Disabled 字段
 
 web/frps/src/
 ├── api/admin.ts            # 6 个治理 API 前端封装
 ├── types/client.ts         # 治理相关类型定义
 ├── utils/client.ts         # Client 类增加 disabled 属性
+├── utils/proxy.ts          # BaseProxy 类增加 disabled 属性
 ├── i18n/index.ts           # governance 命名空间翻译
 ├── components/
 │   ├── ClientCard.vue      # 禁用状态标签
-│   └── ProxyCard.vue       # 代理禁用按钮
+│   └── ProxyCard.vue       # 代理禁用/启用按钮 + 已禁用标签
 └── views/
     ├── Clients.vue          # 「已禁用」筛选 tab
     ├── ClientDetail.vue     # 客户端治理操作 + 对话框
-    └── Proxies.vue          # 代理禁用后自动刷新
+    ├── Proxies.vue          # 代理禁用后自动刷新
+    └── ProxyDetail.vue      # 代理详情页「已禁用」标签
 ```
