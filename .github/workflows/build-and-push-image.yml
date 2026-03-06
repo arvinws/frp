@@ -15,6 +15,7 @@ permissions:
 jobs:
   image:
     name: Build Image from Dockerfile and binaries
+    if: github.repository_owner == 'fatedier' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       # environment

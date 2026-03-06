@@ -35,3 +35,15 @@ All endpoints support optional JSON payload:
   "operator": "string"
 }
 ```
+
+## Fork CI workflows
+
+- `fork-auto-package.yml`: runs on every push and uploads `release/packages/*` as Actions artifacts.
+- `fork-auto-release.yml`: runs on tag push (`v*`) and publishes a GitHub Release with all files in `release/packages/*`.
+
+Example release trigger:
+
+```bash
+git tag v0.67.0-arvin.1
+git push origin v0.67.0-arvin.1
+```
