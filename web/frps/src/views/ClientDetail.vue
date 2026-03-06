@@ -334,11 +334,27 @@ const executeAction = async () => {
 
     ElMessage.success(successMsg!)
     dialogVisible.value = false
-    await fetchClient()
+
+    const involvedDisconnect =
+      useDisableAndDisconnect || dialogAction.value === 'disconnect'
+    if (involvedDisconnect) {
+      await new Promise((r) => setTimeout(r, 1500))
+    }
+    await refreshAfterAction()
   } catch (error: any) {
     ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
   } finally {
     actionLoading.value = false
+  }
+}
+
+const refreshAfterAction = async () => {
+  const key = route.params.key as string
+  try {
+    const data = await getClient(key)
+    client.value = new Client(data)
+  } catch {
+    router.replace('/clients')
   }
 }
 
@@ -399,7 +415,11 @@ const fetchClient = async () => {
     const data = await getClient(key)
     client.value = new Client(data)
   } catch (error: any) {
-    ElMessage.error(`${t('clients.fetchClientFailed')}: ${error.message}`)
+    if (error.status === 404) {
+      client.value = null
+    } else {
+      ElMessage.error(`${t('clients.fetchClientFailed')}: ${error.message}`)
+    }
   } finally {
     loading.value = false
   }
