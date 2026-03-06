@@ -3,36 +3,36 @@
     <el-row :gutter="20" class="stats-row">
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
-          label="Clients"
+          :label="t('app.clients')"
           :value="data.clientCounts"
           type="clients"
-          subtitle="Connected clients"
+          :subtitle="t('overview.connectedClients')"
           to="/clients"
         />
       </el-col>
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
-          label="Proxies"
+          :label="t('app.proxies')"
           :value="data.proxyCounts"
           type="proxies"
-          subtitle="Active proxies"
+          :subtitle="t('overview.activeProxies')"
           to="/proxies/tcp"
         />
       </el-col>
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
-          label="Connections"
+          :label="t('proxy.connections')"
           :value="data.curConns"
           type="connections"
-          subtitle="Current connections"
+          :subtitle="t('overview.currentConnections')"
         />
       </el-col>
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
-          label="Traffic"
+          :label="t('app.traffic')"
           :value="formatTrafficTotal()"
           type="traffic"
-          subtitle="Total today"
+          :subtitle="t('overview.totalToday')"
         />
       </el-col>
     </el-row>
@@ -42,8 +42,8 @@
         <el-card class="chart-card" shadow="hover">
           <template #header>
             <div class="card-header">
-              <span class="card-title">Network Traffic</span>
-              <el-tag size="small" type="info">Today</el-tag>
+              <span class="card-title">{{ t('overview.networkTraffic') }}</span>
+              <el-tag size="small" type="info">{{ t('overview.today') }}</el-tag>
             </div>
           </template>
           <div class="traffic-summary">
@@ -52,7 +52,7 @@
                 <el-icon><Download /></el-icon>
               </div>
               <div class="traffic-info">
-                <div class="label">Inbound</div>
+                <div class="label">{{ t('overview.inbound') }}</div>
                 <div class="value">
                   {{ formatFileSize(data.totalTrafficIn) }}
                 </div>
@@ -64,7 +64,7 @@
                 <el-icon><Upload /></el-icon>
               </div>
               <div class="traffic-info">
-                <div class="label">Outbound</div>
+                <div class="label">{{ t('overview.outbound') }}</div>
                 <div class="value">
                   {{ formatFileSize(data.totalTrafficOut) }}
                 </div>
@@ -77,8 +77,8 @@
         <el-card class="chart-card" shadow="hover">
           <template #header>
             <div class="card-header">
-              <span class="card-title">Proxy Types</span>
-              <el-tag size="small" type="info">Now</el-tag>
+              <span class="card-title">{{ t('overview.proxyTypes') }}</span>
+              <el-tag size="small" type="info">{{ t('overview.now') }}</el-tag>
             </div>
           </template>
           <div class="proxy-types-grid">
@@ -92,7 +92,7 @@
               <div class="proxy-type-count">{{ count }}</div>
             </div>
             <div v-if="!hasActiveProxies" class="no-data">
-              No active proxies
+              {{ t('overview.noActiveProxies') }}
             </div>
           </div>
         </el-card>
@@ -102,57 +102,57 @@
     <el-card class="config-card" shadow="hover">
       <template #header>
         <div class="card-header">
-          <span class="card-title">Server Configuration</span>
+          <span class="card-title">{{ t('overview.serverConfiguration') }}</span>
           <el-tag size="small" type="success">v{{ data.version }}</el-tag>
         </div>
       </template>
       <div class="config-grid">
         <div class="config-item">
-          <span class="config-label">Bind Port</span>
+          <span class="config-label">{{ t('overview.bindPort') }}</span>
           <span class="config-value">{{ data.bindPort }}</span>
         </div>
         <div class="config-item" v-if="data.kcpBindPort != 0">
-          <span class="config-label">KCP Port</span>
+          <span class="config-label">{{ t('overview.kcpPort') }}</span>
           <span class="config-value">{{ data.kcpBindPort }}</span>
         </div>
         <div class="config-item" v-if="data.quicBindPort != 0">
-          <span class="config-label">QUIC Port</span>
+          <span class="config-label">{{ t('overview.quicPort') }}</span>
           <span class="config-value">{{ data.quicBindPort }}</span>
         </div>
         <div class="config-item" v-if="data.vhostHTTPPort != 0">
-          <span class="config-label">HTTP Port</span>
+          <span class="config-label">{{ t('overview.httpPort') }}</span>
           <span class="config-value">{{ data.vhostHTTPPort }}</span>
         </div>
         <div class="config-item" v-if="data.vhostHTTPSPort != 0">
-          <span class="config-label">HTTPS Port</span>
+          <span class="config-label">{{ t('overview.httpsPort') }}</span>
           <span class="config-value">{{ data.vhostHTTPSPort }}</span>
         </div>
         <div class="config-item" v-if="data.tcpmuxHTTPConnectPort != 0">
-          <span class="config-label">TCPMux Port</span>
+          <span class="config-label">{{ t('overview.tcpmuxPort') }}</span>
           <span class="config-value">{{ data.tcpmuxHTTPConnectPort }}</span>
         </div>
         <div class="config-item" v-if="data.subdomainHost != ''">
-          <span class="config-label">Subdomain Host</span>
+          <span class="config-label">{{ t('overview.subdomainHost') }}</span>
           <span class="config-value">{{ data.subdomainHost }}</span>
         </div>
         <div class="config-item">
-          <span class="config-label">Max Pool Count</span>
+          <span class="config-label">{{ t('overview.maxPoolCount') }}</span>
           <span class="config-value">{{ data.maxPoolCount }}</span>
         </div>
         <div class="config-item">
-          <span class="config-label">Max Ports/Client</span>
-          <span class="config-value">{{ data.maxPortsPerClient }}</span>
+          <span class="config-label">{{ t('overview.maxPortsPerClient') }}</span>
+          <span class="config-value">{{ maxPortsPerClientDisplay }}</span>
         </div>
         <div class="config-item" v-if="data.allowPortsStr != ''">
-          <span class="config-label">Allow Ports</span>
+          <span class="config-label">{{ t('overview.allowPorts') }}</span>
           <span class="config-value">{{ data.allowPortsStr }}</span>
         </div>
         <div class="config-item" v-if="data.tlsForce">
-          <span class="config-label">TLS Force</span>
-          <el-tag size="small" type="warning">Enabled</el-tag>
+          <span class="config-label">{{ t('overview.tlsForce') }}</span>
+          <el-tag size="small" type="warning">{{ t('common.enabled') }}</el-tag>
         </div>
         <div class="config-item">
-          <span class="config-label">Heartbeat Timeout</span>
+          <span class="config-label">{{ t('overview.heartbeatTimeout') }}</span>
           <span class="config-value">{{ data.heartbeatTimeout }}s</span>
         </div>
       </div>
@@ -167,6 +167,9 @@ import { formatFileSize } from '../utils/format'
 import { Download, Upload } from '@element-plus/icons-vue'
 import StatCard from '../components/StatCard.vue'
 import { getServerInfo } from '../api/server'
+import { useI18n } from '../i18n'
+
+const { t } = useI18n()
 
 const data = ref({
   version: '',
@@ -178,7 +181,7 @@ const data = ref({
   tcpmuxHTTPConnectPort: 0,
   subdomainHost: '',
   maxPoolCount: 0,
-  maxPortsPerClient: '',
+  maxPortsPerClient: 0,
   allowPortsStr: '',
   tlsForce: false,
   heartbeatTimeout: 0,
@@ -192,6 +195,13 @@ const data = ref({
 
 const hasActiveProxies = computed(() => {
   return Object.values(data.value.proxyTypeCounts).some((c) => c > 0)
+})
+
+const maxPortsPerClientDisplay = computed(() => {
+  if (data.value.maxPortsPerClient === 0) {
+    return t('common.noLimit')
+  }
+  return String(data.value.maxPortsPerClient)
 })
 
 const formatTrafficTotal = () => {
@@ -211,10 +221,7 @@ const fetchData = async () => {
     data.value.tcpmuxHTTPConnectPort = json.tcpmuxHTTPConnectPort
     data.value.subdomainHost = json.subdomainHost
     data.value.maxPoolCount = json.maxPoolCount
-    data.value.maxPortsPerClient = String(json.maxPortsPerClient)
-    if (data.value.maxPortsPerClient == '0') {
-      data.value.maxPortsPerClient = 'no limit'
-    }
+    data.value.maxPortsPerClient = json.maxPortsPerClient
     data.value.allowPortsStr = json.allowPortsStr
     data.value.tlsForce = json.tlsForce
     data.value.heartbeatTimeout = json.heartbeatTimeout
@@ -233,7 +240,7 @@ const fetchData = async () => {
   } catch {
     ElMessage({
       showClose: true,
-      message: 'Get server info from frps failed!',
+      message: t('overview.fetchFailed'),
       type: 'error',
     })
   }

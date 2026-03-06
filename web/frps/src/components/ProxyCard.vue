@@ -11,15 +11,15 @@
 
         <div class="card-meta">
           <span v-if="proxy.port" class="meta-item">
-            <span class="meta-label">Port:</span>
+            <span class="meta-label">{{ t('proxy.port') }}:</span>
             <span class="meta-value">{{ proxy.port }}</span>
           </span>
           <span class="meta-item">
-            <span class="meta-label">Connections:</span>
+            <span class="meta-label">{{ t('proxy.connections') }}:</span>
             <span class="meta-value">{{ proxy.conns }}</span>
           </span>
           <span class="meta-item" v-if="proxy.clientID">
-            <span class="meta-label">Client:</span>
+            <span class="meta-label">{{ t('proxy.client') }}:</span>
             <span class="meta-value">{{
               proxy.user ? `${proxy.user}.${proxy.clientID}` : proxy.clientID
             }}</span>
@@ -44,7 +44,7 @@
         </div>
 
         <div class="status-badge" :class="proxy.status">
-          {{ proxy.status }}
+          {{ statusText }}
         </div>
       </div>
     </div>
@@ -57,6 +57,7 @@ import { useRoute } from 'vue-router'
 import { Top, Bottom } from '@element-plus/icons-vue'
 import { formatFileSize } from '../utils/format'
 import type { BaseProxy } from '../utils/proxy'
+import { useI18n } from '../i18n'
 
 interface Props {
   proxy: BaseProxy
@@ -65,6 +66,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const route = useRoute()
+const { t } = useI18n()
 
 const proxyLink = computed(() => {
   const base = `/proxy/${props.proxy.name}`
@@ -73,6 +75,17 @@ const proxyLink = computed(() => {
     return `${base}?from=client&client=${route.params.key}`
   }
   return base
+})
+
+const statusText = computed(() => {
+  const raw = props.proxy.status.toLowerCase()
+  if (raw === 'online') {
+    return t('common.online')
+  }
+  if (raw === 'offline') {
+    return t('common.offline')
+  }
+  return props.proxy.status
 })
 </script>
 

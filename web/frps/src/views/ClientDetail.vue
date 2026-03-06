@@ -5,7 +5,9 @@
       <a class="breadcrumb-link" @click="goBack">
         <el-icon><ArrowLeft /></el-icon>
       </a>
-      <router-link to="/clients" class="breadcrumb-item">Clients</router-link>
+      <router-link to="/clients" class="breadcrumb-item">{{
+        t('app.clients')
+      }}</router-link>
       <span class="breadcrumb-separator">/</span>
       <span class="breadcrumb-current">{{
         client?.displayName || route.params.key
@@ -43,7 +45,7 @@
                 class="status-badge"
                 :class="client.online ? 'online' : 'offline'"
               >
-                {{ client.online ? 'Online' : 'Offline' }}
+                {{ client.online ? t('common.online') : t('common.offline') }}
               </span>
             </div>
           </div>
@@ -51,20 +53,20 @@
           <!-- Info Section -->
           <div class="info-section">
             <div class="info-item">
-              <span class="info-label">Connections</span>
+              <span class="info-label">{{ t('clients.connections') }}</span>
               <span class="info-value">{{ totalConnections }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">Run ID</span>
+              <span class="info-label">{{ t('clients.runID') }}</span>
               <span class="info-value">{{ client.runID }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">First Connected</span>
+              <span class="info-label">{{ t('clients.firstConnected') }}</span>
               <span class="info-value">{{ client.firstConnectedAgo }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">{{
-                client.online ? 'Connected' : 'Disconnected'
+                client.online ? t('clients.connected') : t('clients.disconnected')
               }}</span>
               <span class="info-value">{{
                 client.online ? client.lastConnectedAgo : client.disconnectedAgo
@@ -77,12 +79,12 @@
         <div class="proxies-card">
           <div class="proxies-header">
             <div class="proxies-title">
-              <h2>Proxies</h2>
+              <h2>{{ t('clients.proxies') }}</h2>
               <span class="proxies-count">{{ filteredProxies.length }}</span>
             </div>
             <el-input
               v-model="proxySearch"
-              placeholder="Search proxies..."
+              :placeholder="t('clients.searchProxiesPlaceholder')"
               :prefix-icon="Search"
               clearable
               class="proxy-search"
@@ -91,7 +93,7 @@
           <div class="proxies-body">
             <div v-if="proxiesLoading" class="loading-state">
               <el-icon class="is-loading"><Loading /></el-icon>
-              <span>Loading...</span>
+              <span>{{ t('common.loading') }}</span>
             </div>
             <div v-else-if="filteredProxies.length > 0" class="proxies-list">
               <ProxyCard
@@ -102,20 +104,20 @@
               />
             </div>
             <div v-else-if="clientProxies.length > 0" class="empty-state">
-              <p>No proxies match "{{ proxySearch }}"</p>
+              <p>{{ t('clients.noProxiesMatch', { keyword: proxySearch }) }}</p>
             </div>
             <div v-else class="empty-state">
-              <p>No proxies found</p>
+              <p>{{ t('clients.noProxiesFound') }}</p>
             </div>
           </div>
         </div>
       </template>
 
       <div v-else-if="!loading" class="not-found">
-        <h2>Client not found</h2>
-        <p>The client doesn't exist or has been removed.</p>
+        <h2>{{ t('clients.clientNotFound') }}</h2>
+        <p>{{ t('clients.clientNotFoundDesc') }}</p>
         <router-link to="/clients">
-          <el-button type="primary">Back to Clients</el-button>
+          <el-button type="primary">{{ t('clients.backToClients') }}</el-button>
         </router-link>
       </div>
     </div>
@@ -142,9 +144,11 @@ import {
 } from '../utils/proxy'
 import { getServerInfo } from '../api/server'
 import ProxyCard from '../components/ProxyCard.vue'
+import { useI18n } from '../i18n'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const client = ref<Client | null>(null)
 const loading = ref(true)
 
@@ -205,7 +209,7 @@ const fetchClient = async () => {
     const data = await getClient(key)
     client.value = new Client(data)
   } catch (error: any) {
-    ElMessage.error('Failed to fetch client: ' + error.message)
+    ElMessage.error(`${t('clients.fetchClientFailed')}: ${error.message}`)
   } finally {
     loading.value = false
   }

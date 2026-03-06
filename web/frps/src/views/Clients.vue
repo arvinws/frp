@@ -3,8 +3,8 @@
     <div class="page-header">
       <div class="header-top">
         <div class="title-section">
-          <h1 class="page-title">Clients</h1>
-          <p class="page-subtitle">Manage connected clients and their status</p>
+          <h1 class="page-title">{{ t('clients.title') }}</h1>
+          <p class="page-subtitle">{{ t('clients.subtitle') }}</p>
         </div>
         <div class="status-tabs">
           <button
@@ -24,7 +24,7 @@
       <div class="search-section">
         <el-input
           v-model="searchText"
-          placeholder="Search clients..."
+          :placeholder="t('clients.searchPlaceholder')"
           :prefix-icon="Search"
           clearable
           class="search-input"
@@ -41,7 +41,7 @@
         />
       </div>
       <div v-else-if="!loading" class="empty-state">
-        <el-empty description="No clients found" />
+        <el-empty :description="t('clients.noClientsFound')" />
       </div>
     </div>
   </div>
@@ -54,6 +54,9 @@ import { Search } from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
 import ClientCard from '../components/ClientCard.vue'
 import { getClients } from '../api/client'
+import { useI18n } from '../i18n'
+
+const { t } = useI18n()
 
 const clients = ref<Client[]>([])
 const loading = ref(false)
@@ -70,9 +73,17 @@ const stats = computed(() => {
 })
 
 const statusTabs = computed(() => [
-  { value: 'all' as const, label: 'All', count: stats.value.total },
-  { value: 'online' as const, label: 'Online', count: stats.value.online },
-  { value: 'offline' as const, label: 'Offline', count: stats.value.offline },
+  { value: 'all' as const, label: t('clients.all'), count: stats.value.total },
+  {
+    value: 'online' as const,
+    label: t('clients.online'),
+    count: stats.value.online,
+  },
+  {
+    value: 'offline' as const,
+    label: t('clients.offline'),
+    count: stats.value.offline,
+  },
 ])
 
 const filteredClients = computed(() => {
@@ -109,7 +120,7 @@ const fetchData = async () => {
   } catch (error: any) {
     ElMessage({
       showClose: true,
-      message: 'Failed to fetch clients: ' + error.message,
+      message: `${t('clients.fetchFailed')}: ${error.message}`,
       type: 'error',
     })
   } finally {

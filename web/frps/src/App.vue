@@ -9,7 +9,7 @@
             </div>
             <span class="divider">/</span>
             <span class="brand-name">frp</span>
-            <span class="badge server-badge">Server</span>
+            <span class="badge server-badge">{{ t('app.server') }}</span>
             <span class="badge" v-if="currentRouteName">{{
               currentRouteName
             }}</span>
@@ -20,10 +20,19 @@
               class="github-link"
               href="https://github.com/fatedier/frp"
               target="_blank"
-              aria-label="GitHub"
+              :aria-label="t('app.github')"
             >
               <GitHubIcon class="github-icon" />
             </a>
+            <el-select
+              v-model="selectedLocale"
+              size="small"
+              class="language-select"
+              :aria-label="t('app.language')"
+            >
+              <el-option label="English" value="en-US" />
+              <el-option label="中文" value="zh-CN" />
+            </el-select>
             <el-switch
               v-model="isDark"
               inline-prompt
@@ -36,16 +45,16 @@
 
         <nav class="nav-bar">
           <router-link to="/" class="nav-link" active-class="active"
-            >Overview</router-link
+            >{{ t('app.overview') }}</router-link
           >
           <router-link to="/clients" class="nav-link" active-class="active"
-            >Clients</router-link
+            >{{ t('app.clients') }}</router-link
           >
           <router-link
             to="/proxies"
             class="nav-link"
             :class="{ active: route.path.startsWith('/proxies') }"
-            >Proxies</router-link
+            >{{ t('app.proxies') }}</router-link
           >
         </nav>
       </div>
@@ -64,14 +73,23 @@ import { useDark } from '@vueuse/core'
 import { Moon, Sunny } from '@element-plus/icons-vue'
 import GitHubIcon from './assets/icons/github.svg?component'
 import LogoIcon from './assets/icons/logo.svg?component'
+import { type Locale, useI18n } from './i18n'
 
 const route = useRoute()
 const isDark = useDark()
+const { t, locale, setLocale } = useI18n()
+
+const selectedLocale = computed<Locale>({
+  get: () => locale.value,
+  set: (value) => {
+    setLocale(value)
+  },
+})
 
 const currentRouteName = computed(() => {
-  if (route.path === '/') return 'Overview'
-  if (route.path.startsWith('/clients')) return 'Clients'
-  if (route.path.startsWith('/proxies')) return 'Proxies'
+  if (route.path === '/') return t('app.overview')
+  if (route.path.startsWith('/clients')) return t('app.clients')
+  if (route.path.startsWith('/proxies')) return t('app.proxies')
   return ''
 })
 </script>
@@ -186,6 +204,15 @@ html.dark .badge.server-badge {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.language-select {
+  width: 110px;
+}
+
+.language-select :deep(.el-select__wrapper) {
+  border-radius: 999px;
+  min-height: 28px;
 }
 
 .github-link {

@@ -3,25 +3,25 @@
     <div class="page-header">
       <div class="header-top">
         <div class="title-section">
-          <h1 class="page-title">Proxies</h1>
-          <p class="page-subtitle">View and manage all proxy configurations</p>
+          <h1 class="page-title">{{ t('proxies.title') }}</h1>
+          <p class="page-subtitle">{{ t('proxies.subtitle') }}</p>
         </div>
 
         <div class="actions-section">
           <el-button :icon="Refresh" class="action-btn" @click="fetchData"
-            >Refresh</el-button
+            >{{ t('proxies.refresh') }}</el-button
           >
 
           <el-popconfirm
-            title="Clear all offline proxies?"
+            :title="t('proxies.clearOfflineConfirm')"
             width="220"
-            confirm-button-text="Clear"
-            cancel-button-text="Cancel"
+            :confirm-button-text="t('proxies.clear')"
+            :cancel-button-text="t('proxies.cancel')"
             @confirm="clearOfflineProxies"
           >
             <template #reference>
               <el-button :icon="Delete" class="action-btn" type="danger" plain
-                >Clear Offline</el-button
+                >{{ t('proxies.clearOffline') }}</el-button
               >
             </template>
           </el-popconfirm>
@@ -32,7 +32,7 @@
         <div class="search-row">
           <el-input
             v-model="searchText"
-            placeholder="Search proxies..."
+            :placeholder="t('proxies.searchPlaceholder')"
             :prefix-icon="Search"
             clearable
             class="main-search"
@@ -40,16 +40,20 @@
 
           <el-select
             :model-value="selectedClientKey"
-            placeholder="All Clients"
+            :placeholder="t('proxies.allClients')"
             clearable
             filterable
             class="client-select"
             @change="onClientFilterChange"
           >
-            <el-option label="All Clients" value="" />
+            <el-option :label="t('proxies.allClients')" value="" />
             <el-option
               v-if="clientIDFilter && !selectedClientInList"
-              :label="`${userFilter ? userFilter + '.' : ''}${clientIDFilter} (not found)`"
+              :label="
+                t('proxies.clientNotFound', {
+                  label: `${userFilter ? userFilter + '.' : ''}${clientIDFilter}`,
+                })
+              "
               :value="selectedClientKey"
               style="color: var(--el-color-warning); font-style: italic"
             />
@@ -85,7 +89,7 @@
         />
       </div>
       <div v-else-if="!loading" class="empty-state">
-        <el-empty description="No proxies found" />
+        <el-empty :description="t('proxies.noProxiesFound')" />
       </div>
     </div>
   </div>
@@ -114,6 +118,9 @@ import {
 import { getServerInfo } from '../api/server'
 import { getClients } from '../api/client'
 import { Client } from '../utils/client'
+import { useI18n } from '../i18n'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -267,7 +274,7 @@ const fetchData = async () => {
   } catch (error: any) {
     ElMessage({
       showClose: true,
-      message: 'Failed to fetch proxies: ' + error.message,
+      message: `${t('proxies.fetchFailed')}: ${error.message}`,
       type: 'error',
     })
   } finally {
@@ -279,13 +286,13 @@ const clearOfflineProxies = async () => {
   try {
     await apiClearOfflineProxies()
     ElMessage({
-      message: 'Successfully cleared offline proxies',
+      message: t('proxies.clearSuccess'),
       type: 'success',
     })
     fetchData()
   } catch (err: any) {
     ElMessage({
-      message: 'Failed to clear offline proxies: ' + err.message,
+      message: `${t('proxies.clearFailed')}: ${err.message}`,
       type: 'warning',
     })
   }

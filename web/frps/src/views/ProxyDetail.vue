@@ -6,7 +6,9 @@
         <el-icon><ArrowLeft /></el-icon>
       </a>
       <template v-if="fromClient">
-        <router-link to="/clients" class="breadcrumb-item">Clients</router-link>
+        <router-link to="/clients" class="breadcrumb-item">{{
+          t('app.clients')
+        }}</router-link>
         <span class="breadcrumb-separator">/</span>
         <router-link :to="`/clients/${fromClient}`" class="breadcrumb-item">{{
           fromClient
@@ -14,7 +16,9 @@
         <span class="breadcrumb-separator">/</span>
       </template>
       <template v-else>
-        <router-link to="/proxies" class="breadcrumb-item">Proxies</router-link>
+        <router-link to="/proxies" class="breadcrumb-item">{{
+          t('app.proxies')
+        }}</router-link>
         <span class="breadcrumb-separator">/</span>
         <router-link
           v-if="proxy?.clientID"
@@ -44,7 +48,7 @@
                 <h1 class="proxy-name">{{ proxy.name }}</h1>
                 <span class="type-tag">{{ proxy.type.toUpperCase() }}</span>
                 <span class="status-badge" :class="proxy.status">
-                  {{ proxy.status }}
+                  {{ proxyStatusText }}
                 </span>
               </div>
               <div class="header-meta">
@@ -55,7 +59,7 @@
                 >
                   <el-icon><Monitor /></el-icon>
                   <span
-                    >Client:
+                    >{{ t('proxy.client') }}:
                     {{
                       proxy.user
                         ? `${proxy.user}.${proxy.clientID}`
@@ -72,7 +76,7 @@
         <div class="stats-grid">
           <div v-if="proxy.port" class="stat-card">
             <div class="stat-header">
-              <span class="stat-label">Port</span>
+              <span class="stat-label">{{ t('proxy.port') }}</span>
               <div class="stat-icon port">
                 <el-icon><Connection /></el-icon>
               </div>
@@ -81,7 +85,7 @@
           </div>
           <div class="stat-card">
             <div class="stat-header">
-              <span class="stat-label">Connections</span>
+              <span class="stat-label">{{ t('proxy.connections') }}</span>
               <div class="stat-icon connections">
                 <el-icon><DataLine /></el-icon>
               </div>
@@ -90,7 +94,7 @@
           </div>
           <div class="stat-card">
             <div class="stat-header">
-              <span class="stat-label">Traffic In</span>
+              <span class="stat-label">{{ t('proxy.trafficIn') }}</span>
               <div class="stat-icon traffic-in">
                 <el-icon><Bottom /></el-icon>
               </div>
@@ -106,7 +110,7 @@
           </div>
           <div class="stat-card">
             <div class="stat-header">
-              <span class="stat-label">Traffic Out</span>
+              <span class="stat-label">{{ t('proxy.trafficOut') }}</span>
               <div class="stat-icon traffic-out">
                 <el-icon><Top /></el-icon>
               </div>
@@ -126,18 +130,18 @@
         <div class="timeline-card">
           <div class="timeline-header">
             <el-icon><DataLine /></el-icon>
-            <h2>Status Timeline</h2>
+            <h2>{{ t('proxy.statusTimeline') }}</h2>
           </div>
           <div class="timeline-body">
             <div class="timeline-grid">
               <div class="timeline-item">
-                <span class="timeline-label">Last Start Time</span>
+                <span class="timeline-label">{{ t('proxy.lastStartTime') }}</span>
                 <span class="timeline-value">{{
                   proxy.lastStartTime || '-'
                 }}</span>
               </div>
               <div class="timeline-item">
-                <span class="timeline-label">Last Close Time</span>
+                <span class="timeline-label">{{ t('proxy.lastCloseTime') }}</span>
                 <span class="timeline-value">{{
                   proxy.lastCloseTime || '-'
                 }}</span>
@@ -150,7 +154,7 @@
         <div class="config-section">
           <div class="config-section-header">
             <el-icon><Setting /></el-icon>
-            <h2>Configuration</h2>
+            <h2>{{ t('proxy.configuration') }}</h2>
           </div>
 
           <!-- Config Cards Grid -->
@@ -160,9 +164,9 @@
                 <el-icon><Lock /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Encryption</span>
+                <span class="config-item-label">{{ t('proxy.encryption') }}</span>
                 <span class="config-item-value">{{
-                  proxy.encryption ? 'Enabled' : 'Disabled'
+                  proxy.encryption ? t('common.enabled') : t('common.disabled')
                 }}</span>
               </div>
             </div>
@@ -172,9 +176,9 @@
                 <el-icon><Lightning /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Compression</span>
+                <span class="config-item-label">{{ t('proxy.compression') }}</span>
                 <span class="config-item-value">{{
-                  proxy.compression ? 'Enabled' : 'Disabled'
+                  proxy.compression ? t('common.enabled') : t('common.disabled')
                 }}</span>
               </div>
             </div>
@@ -184,7 +188,7 @@
                 <el-icon><Link /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Custom Domains</span>
+                <span class="config-item-label">{{ t('proxy.customDomains') }}</span>
                 <span class="config-item-value">{{ proxy.customDomains }}</span>
               </div>
             </div>
@@ -194,7 +198,7 @@
                 <el-icon><Link /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Subdomain</span>
+                <span class="config-item-label">{{ t('proxy.subdomain') }}</span>
                 <span class="config-item-value">{{ proxy.subdomain }}</span>
               </div>
             </div>
@@ -204,7 +208,7 @@
                 <el-icon><Location /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Locations</span>
+                <span class="config-item-label">{{ t('proxy.locations') }}</span>
                 <span class="config-item-value">{{ proxy.locations }}</span>
               </div>
             </div>
@@ -214,7 +218,7 @@
                 <el-icon><Tickets /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Host Rewrite</span>
+                <span class="config-item-label">{{ t('proxy.hostRewrite') }}</span>
                 <span class="config-item-value">{{
                   proxy.hostHeaderRewrite
                 }}</span>
@@ -226,7 +230,7 @@
                 <el-icon><Cpu /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Multiplexer</span>
+                <span class="config-item-label">{{ t('proxy.multiplexer') }}</span>
                 <span class="config-item-value">{{ proxy.multiplexer }}</span>
               </div>
             </div>
@@ -236,7 +240,9 @@
                 <el-icon><Connection /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">Route By HTTP User</span>
+                <span class="config-item-label">{{
+                  t('proxy.routeByHTTPUser')
+                }}</span>
                 <span class="config-item-value">{{
                   proxy.routeByHTTPUser
                 }}</span>
@@ -261,7 +267,7 @@
         <!-- Traffic Card -->
         <div class="traffic-card">
           <div class="traffic-header">
-            <h2>Traffic Statistics</h2>
+            <h2>{{ t('proxy.trafficStatistics') }}</h2>
           </div>
           <div class="traffic-body">
             <Traffic :proxy-name="proxyName" />
@@ -270,10 +276,10 @@
       </template>
 
       <div v-else-if="!loading" class="not-found">
-        <h2>Proxy not found</h2>
-        <p>The proxy doesn't exist or has been removed.</p>
+        <h2>{{ t('proxy.notFound') }}</h2>
+        <p>{{ t('proxy.notFoundDesc') }}</p>
         <router-link to="/proxies">
-          <el-button type="primary">Back to Proxies</el-button>
+          <el-button type="primary">{{ t('proxy.backToProxies') }}</el-button>
         </router-link>
       </div>
     </div>
@@ -314,9 +320,11 @@ import {
   SUDPProxy,
 } from '../utils/proxy'
 import Traffic from '../components/Traffic.vue'
+import { useI18n } from '../i18n'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const proxyName = computed(() => route.params.name as string)
 const fromClient = computed(() => {
   if (route.query.from === 'client' && route.query.client) {
@@ -394,6 +402,17 @@ const proxyIconConfig = computed(() => {
   )
 })
 
+const proxyStatusText = computed(() => {
+  const raw = proxy.value?.status?.toLowerCase() || ''
+  if (raw === 'online') {
+    return t('common.online')
+  }
+  if (raw === 'offline') {
+    return t('common.offline')
+  }
+  return proxy.value?.status || ''
+})
+
 const formatTrafficValue = (bytes: number): string => {
   if (bytes === 0) return '0'
   const k = 1024
@@ -456,7 +475,7 @@ const fetchProxy = async () => {
       proxy.value.type = type
     }
   } catch (error: any) {
-    ElMessage.error('Failed to fetch proxy: ' + error.message)
+    ElMessage.error(`${t('proxy.fetchFailed')}: ${error.message}`)
   } finally {
     loading.value = false
   }

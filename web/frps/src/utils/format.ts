@@ -1,22 +1,30 @@
+import { locale } from '../i18n'
+
 export function formatDistanceToNow(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  const absSeconds = Math.abs(seconds)
 
-  let interval = seconds / 31536000
-  if (interval > 1) return Math.floor(interval) + ' years ago'
+  const units: Array<{ amount: number; unit: Intl.RelativeTimeFormatUnit }> = [
+    { amount: 31536000, unit: 'year' },
+    { amount: 2592000, unit: 'month' },
+    { amount: 86400, unit: 'day' },
+    { amount: 3600, unit: 'hour' },
+    { amount: 60, unit: 'minute' },
+    { amount: 1, unit: 'second' },
+  ]
 
-  interval = seconds / 2592000
-  if (interval > 1) return Math.floor(interval) + ' months ago'
+  const formatter = new Intl.RelativeTimeFormat(locale.value, {
+    numeric: 'auto',
+  })
 
-  interval = seconds / 86400
-  if (interval > 1) return Math.floor(interval) + ' days ago'
+  for (const entry of units) {
+    if (absSeconds >= entry.amount || entry.unit === 'second') {
+      const value = Math.floor(absSeconds / entry.amount)
+      return formatter.format(-value, entry.unit)
+    }
+  }
 
-  interval = seconds / 3600
-  if (interval > 1) return Math.floor(interval) + ' hours ago'
-
-  interval = seconds / 60
-  if (interval > 1) return Math.floor(interval) + ' minutes ago'
-
-  return Math.floor(seconds) + ' seconds ago'
+  return formatter.format(0, 'second')
 }
 
 export function formatFileSize(bytes: number): string {
