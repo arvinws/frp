@@ -1,72 +1,74 @@
 <template>
-  <div id="app">
-    <header class="header">
-      <div class="header-content">
-        <div class="header-top">
-          <div class="brand-section">
-            <div class="logo-wrapper">
-              <LogoIcon class="logo-icon" />
+  <el-config-provider :locale="elementLocale">
+    <div id="app">
+      <header class="header">
+        <div class="header-content">
+          <div class="header-top">
+            <div class="brand-section">
+              <div class="logo-wrapper">
+                <LogoIcon class="logo-icon" />
+              </div>
+              <span class="divider">/</span>
+              <span class="brand-name">frp</span>
+              <span class="badge server-badge">{{ t('app.server') }}</span>
+              <span class="badge" v-if="currentRouteName">{{
+                currentRouteName
+              }}</span>
             </div>
-            <span class="divider">/</span>
-            <span class="brand-name">frp</span>
-            <span class="badge server-badge">{{ t('app.server') }}</span>
-            <span class="badge" v-if="currentRouteName">{{
-              currentRouteName
-            }}</span>
+
+            <div class="header-controls">
+              <a
+                class="github-link"
+                href="https://github.com/fatedier/frp"
+                target="_blank"
+                :aria-label="t('app.github')"
+              >
+                <GitHubIcon class="github-icon" />
+              </a>
+              <el-select
+                v-model="selectedLocale"
+                size="small"
+                class="language-select"
+                :aria-label="t('app.language')"
+              >
+                <el-option label="English" value="en-US" />
+                <el-option label="中文" value="zh-CN" />
+              </el-select>
+              <el-switch
+                v-model="isDark"
+                inline-prompt
+                :active-icon="Moon"
+                :inactive-icon="Sunny"
+                class="theme-switch"
+              />
+            </div>
           </div>
 
-          <div class="header-controls">
-            <a
-              class="github-link"
-              href="https://github.com/fatedier/frp"
-              target="_blank"
-              :aria-label="t('app.github')"
+          <nav class="nav-bar">
+            <router-link to="/" class="nav-link" active-class="active"
+              >{{ t('app.overview') }}</router-link
             >
-              <GitHubIcon class="github-icon" />
-            </a>
-            <el-select
-              v-model="selectedLocale"
-              size="small"
-              class="language-select"
-              :aria-label="t('app.language')"
+            <router-link to="/clients" class="nav-link" active-class="active"
+              >{{ t('app.clients') }}</router-link
             >
-              <el-option label="English" value="en-US" />
-              <el-option label="中文" value="zh-CN" />
-            </el-select>
-            <el-switch
-              v-model="isDark"
-              inline-prompt
-              :active-icon="Moon"
-              :inactive-icon="Sunny"
-              class="theme-switch"
-            />
-          </div>
+            <router-link
+              to="/proxies"
+              class="nav-link"
+              :class="{ active: route.path.startsWith('/proxies') }"
+              >{{ t('app.proxies') }}</router-link
+            >
+            <router-link to="/schedules" class="nav-link" active-class="active"
+              >{{ t('app.schedules') }}</router-link
+            >
+          </nav>
         </div>
+      </header>
 
-        <nav class="nav-bar">
-          <router-link to="/" class="nav-link" active-class="active"
-            >{{ t('app.overview') }}</router-link
-          >
-          <router-link to="/clients" class="nav-link" active-class="active"
-            >{{ t('app.clients') }}</router-link
-          >
-          <router-link
-            to="/proxies"
-            class="nav-link"
-            :class="{ active: route.path.startsWith('/proxies') }"
-            >{{ t('app.proxies') }}</router-link
-          >
-          <router-link to="/schedules" class="nav-link" active-class="active"
-            >{{ t('app.schedules') }}</router-link
-          >
-        </nav>
-      </div>
-    </header>
-
-    <main id="content">
-      <router-view></router-view>
-    </main>
-  </div>
+      <main id="content">
+        <router-view></router-view>
+      </main>
+    </div>
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
@@ -74,6 +76,8 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDark } from '@vueuse/core'
 import { Moon, Sunny } from '@element-plus/icons-vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import en from 'element-plus/es/locale/lang/en'
 import GitHubIcon from './assets/icons/github.svg?component'
 import LogoIcon from './assets/icons/logo.svg?component'
 import { type Locale, useI18n } from './i18n'
@@ -87,6 +91,10 @@ const selectedLocale = computed<Locale>({
   set: (value) => {
     setLocale(value)
   },
+})
+
+const elementLocale = computed(() => {
+  return locale.value === 'zh-CN' ? zhCn : en
 })
 
 const currentRouteName = computed(() => {

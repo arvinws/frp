@@ -118,3 +118,41 @@ func TestRunPendingExecutesDueTasks(t *testing.T) {
 		t.Fatalf("expected execution log to be recorded")
 	}
 }
+
+func TestManualRunSuppressesImmediateDueSchedule(t *testing.T) {
+	store := newFakeStore()
+	proxyGovernance := &fakeProxyGovernance{}
+	svc := NewService(store, proxyGovernance)
+	now := time.Date(2026, 3, 13, 10, 0, 10, 0, time.FixedZone("CST", 8*3600))
+	svc.nowFn = func() time.Time { return now }
+	svc.dueWindow = time.Minute
+
+	store.tasks["task-1"] = Task{
+		ID:       "task-1",
+		Name:     "Office",
+		Enabled:  true,
+		Timezone: "Asia/Shanghai",
+		Targets:  []Target{{ProxyName: "alice.tcp"}},
+		StartRule: Rule{Mode: RuleModeDaily, Time: "10:00"},
+		StopRule:  Rule{Mode: RuleModeDaily, Time: "18:00"},
+	}
+
+	if _, err := svc.RunTask("task-1", TaskActionStop); err != nil {
+		t.Fatalf("manual stop run: %v", err)
+	}
+	if len(proxyGovernance.disabled) != 1 {
+		t.Fatalf("expected one manual stop call, got %v", proxyGovernance.disabled)
+	}
+
+	svc.runPending()
+	if len(proxyGovernance.enabled) != 0 {
+		t.Fatalf("expected no immediate scheduled start after manual stop, got %v", proxyGovernance.enabled)
+	}
+	updated := store.tasks["task-1"]
+	if updated.LastStartScheduledAt.IsZero() {
+		t.Fatalf("expected manual stop to mark current start window as handled")
+	}
+	if updated.LastExecutionAction != TaskActionStop {
+		t.Fatalf("expected last execution action stop, got %q", updated.LastExecutionAction)
+	}
+}

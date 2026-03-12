@@ -329,6 +329,9 @@ func (s *Service) executeTask(task Task, action TaskAction, scheduledAt time.Tim
 	} else {
 		task.LastStopScheduledAt = scheduledAt
 	}
+	if trigger == ExecutionTriggerManual {
+		s.applyManualExecutionWindow(&task, executedAt)
+	}
 	if err := s.store.SaveTask(task); err != nil {
 		return RunResult{}, err
 	}
@@ -344,6 +347,18 @@ func (s *Service) executeTask(task Task, action TaskAction, scheduledAt time.Tim
 		Result:      result,
 		Logs:        logs,
 	}, nil
+}
+
+func (s *Service) applyManualExecutionWindow(task *Task, now time.Time) {
+	if task == nil {
+		return
+	}
+	if scheduledAt, due := s.scheduledDueAt(*task, TaskActionStart, now); due {
+		task.LastStartScheduledAt = scheduledAt
+	}
+	if scheduledAt, due := s.scheduledDueAt(*task, TaskActionStop, now); due {
+		task.LastStopScheduledAt = scheduledAt
+	}
 }
 
 func (s *Service) releaseTaskSources(task Task) error {
