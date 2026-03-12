@@ -224,6 +224,62 @@ func (c *Controller) APIProxyByName(ctx *httppkg.Context) (any, error) {
 	return proxyInfo, nil
 }
 
+// /api/admin/proxy-options
+func (c *Controller) APIProxyOptions(ctx *httppkg.Context) (any, error) {
+	keyword := strings.ToLower(strings.TrimSpace(ctx.Query("keyword")))
+	clientIDFilter := strings.TrimSpace(ctx.Query("clientID"))
+	userFilter := strings.TrimSpace(ctx.Query("user"))
+	typeFilter := strings.ToLower(strings.TrimSpace(ctx.Query("type")))
+	statusFilter := strings.ToLower(strings.TrimSpace(ctx.Query("status")))
+
+	proxyTypes := []string{"tcp", "udp", "http", "https", "tcpmux", "stcp", "xtcp", "sudp"}
+	items := make([]model.ProxyOptionResp, 0)
+	seen := make(map[string]struct{})
+	for _, proxyType := range proxyTypes {
+		for _, ps := range mem.StatsCollector.GetProxiesByType(proxyType) {
+			if _, ok := seen[ps.Name]; ok {
+				continue
+			}
+			seen[ps.Name] = struct{}{}
+
+			status := "offline"
+			if _, ok := c.pxyManager.GetByName(ps.Name); ok {
+				status = "online"
+			}
+
+			item := model.ProxyOptionResp{
+				ProxyName:   ps.Name,
+				DisplayName: ps.Name,
+				Type:        ps.Type,
+				User:        ps.User,
+				ClientID:    ps.ClientID,
+				Status:      status,
+			}
+			if c.banStore != nil {
+				item.Disabled = c.banStore.IsProxyDisabled(ps.Name)
+			}
+			if !matchProxyOption(item, keyword, clientIDFilter, userFilter, typeFilter, statusFilter) {
+				continue
+			}
+			items = append(items, item)
+		}
+	}
+
+	slices.SortFunc(items, func(a, b model.ProxyOptionResp) int {
+		if v := cmp.Compare(a.User, b.User); v != 0 {
+			return v
+		}
+		if v := cmp.Compare(a.ClientID, b.ClientID); v != 0 {
+			return v
+		}
+		if v := cmp.Compare(a.Type, b.Type); v != 0 {
+			return v
+		}
+		return cmp.Compare(a.ProxyName, b.ProxyName)
+	})
+	return items, nil
+}
+
 // DELETE /api/proxies?status=offline
 func (c *Controller) DeleteProxies(ctx *httppkg.Context) (any, error) {
 	status := ctx.Query("status")
@@ -333,6 +389,26 @@ func matchStatusFilter(online bool, filter string) bool {
 	default:
 		return true
 	}
+}
+
+func matchProxyOption(item model.ProxyOptionResp, keyword, clientID, user, proxyType, status string) bool {
+	if clientID != "" && item.ClientID != clientID {
+		return false
+	}
+	if user != "" && item.User != user {
+		return false
+	}
+	if proxyType != "" && strings.ToLower(item.Type) != proxyType {
+		return false
+	}
+	if status != "" && status != "all" && strings.ToLower(item.Status) != status {
+		return false
+	}
+	if keyword == "" {
+		return true
+	}
+	value := strings.ToLower(strings.Join([]string{item.ProxyName, item.User, item.ClientID, item.Type}, " "))
+	return strings.Contains(value, keyword)
 }
 
 func getConfFromConfigurer(cfg v1.ProxyConfigurer) any {

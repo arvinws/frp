@@ -56,6 +56,9 @@
             :class="{ active: route.path.startsWith('/proxies') }"
             >{{ t('app.proxies') }}</router-link
           >
+          <router-link to="/schedules" class="nav-link" active-class="active"
+            >{{ t('app.schedules') }}</router-link
+          >
         </nav>
       </div>
     </header>
@@ -90,6 +93,7 @@ const currentRouteName = computed(() => {
   if (route.path === '/') return t('app.overview')
   if (route.path.startsWith('/clients')) return t('app.clients')
   if (route.path.startsWith('/proxies')) return t('app.proxies')
+  if (route.path.startsWith('/schedules')) return t('app.schedules')
   return ''
 })
 </script>

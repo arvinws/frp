@@ -37,7 +37,10 @@ import (
 	"github.com/fatedier/frp/pkg/ext/audit"
 	"github.com/fatedier/frp/pkg/ext/banlist"
 	"github.com/fatedier/frp/pkg/ext/clientmgr"
+	"github.com/fatedier/frp/pkg/ext/governance"
+	"github.com/fatedier/frp/pkg/ext/scheduler"
 	modelmetrics "github.com/fatedier/frp/pkg/metrics"
+	"github.com/fatedier/frp/pkg/metrics/mem"
 	"github.com/fatedier/frp/pkg/msg"
 	"github.com/fatedier/frp/pkg/nathole"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
@@ -106,6 +109,8 @@ type Service struct {
 	clientBanStore banlist.Store
 	sessionManager *clientmgr.Manager
 	auditRecorder  audit.Recorder
+	proxyGovernance *governance.Service
+	scheduleService *scheduler.Service
 
 	// Manage all proxies
 	pxyManager *proxy.Manager
@@ -186,6 +191,12 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		cfg:               cfg,
 		ctx:               context.Background(),
 	}
+	svr.proxyGovernance = governance.NewService(svr.clientBanStore, svr.sessionManager, svr.ctlManager, proxyStatsMetadataProvider{})
+	scheduleStore, err := scheduler.NewFileStore("", "")
+	if err != nil {
+		return nil, err
+	}
+	svr.scheduleService = scheduler.NewService(scheduleStore, svr.proxyGovernance)
 	if webServer != nil {
 		webServer.RouteRegister(svr.registerRouteHandlers)
 	}
@@ -362,6 +373,16 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	return svr, nil
 }
 
+type proxyStatsMetadataProvider struct{}
+
+func (proxyStatsMetadataProvider) GetProxyMetadata(name string) (governance.ProxyMetadata, bool) {
+	ps := mem.StatsCollector.GetProxyByName(name)
+	if ps == nil {
+		return governance.ProxyMetadata{}, false
+	}
+	return governance.ProxyMetadata{ClientID: ps.ClientID}, true
+}
+
 func (svr *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	svr.ctx = ctx
@@ -390,6 +411,9 @@ func (svr *Service) Run(ctx context.Context) {
 
 	if svr.rc.NatHoleController != nil {
 		go svr.rc.NatHoleController.CleanWorker(svr.ctx)
+	}
+	if svr.scheduleService != nil {
+		svr.scheduleService.Start(svr.ctx)
 	}
 
 	if svr.sshTunnelGateway != nil {

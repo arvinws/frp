@@ -27,7 +27,7 @@ func TestDisableAndDisconnect(t *testing.T) {
 	store := banlist.NewMemoryStore()
 	sessionMgr := clientmgr.NewManager()
 	recorder := audit.NewMemoryRecorder()
-	handler := NewHandler(store, sessionMgr, recorder)
+	handler := NewHandler(store, sessionMgr, recorder, nil)
 
 	ctl := &fakeController{}
 	sessionMgr.Register("run-1", "client-a", "user-a", "127.0.0.1", ctl)
@@ -60,7 +60,7 @@ func TestDisableAndDisconnect(t *testing.T) {
 }
 
 func TestDisconnectSessionAlreadyOffline(t *testing.T) {
-	handler := NewHandler(banlist.NewMemoryStore(), clientmgr.NewManager(), audit.NewMemoryRecorder())
+	handler := NewHandler(banlist.NewMemoryStore(), clientmgr.NewManager(), audit.NewMemoryRecorder(), nil)
 
 	ctx := newTestContext(
 		http.MethodPost,

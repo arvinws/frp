@@ -136,3 +136,13 @@ type GetProxyTrafficResp struct {
 	TrafficIn  []int64 `json:"trafficIn"`
 	TrafficOut []int64 `json:"trafficOut"`
 }
+
+type ProxyOptionResp struct {
+	ProxyName   string `json:"proxyName"`
+	DisplayName string `json:"displayName"`
+	Type        string `json:"type,omitempty"`
+	User        string `json:"user,omitempty"`
+	ClientID    string `json:"clientID,omitempty"`
+	Status      string `json:"status"`
+	Disabled    bool   `json:"disabled"`
+}

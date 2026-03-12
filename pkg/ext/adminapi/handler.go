@@ -25,21 +25,23 @@ import (
 	"github.com/fatedier/frp/pkg/ext/audit"
 	"github.com/fatedier/frp/pkg/ext/banlist"
 	"github.com/fatedier/frp/pkg/ext/clientmgr"
+	"github.com/fatedier/frp/pkg/ext/governance"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 )
 
-type ProxyCloser interface {
-	CloseProxyByName(name string) bool
+type ProxyGovernance interface {
+	DisableProxy(proxyName, source, reason, operator string) (governance.ProxyActionResult, error)
+	EnableProxy(proxyName, source string) (governance.ProxyActionResult, error)
 }
 
 type Handler struct {
 	banStore       banlist.Store
 	sessionManager *clientmgr.Manager
 	auditRecorder  audit.Recorder
-	proxyCloser    ProxyCloser
+	proxyGovernance ProxyGovernance
 }
 
-func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, auditRecorder audit.Recorder, proxyCloser ProxyCloser) *Handler {
+func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, auditRecorder audit.Recorder, proxyGovernance ProxyGovernance) *Handler {
 	if auditRecorder == nil {
 		auditRecorder = noopRecorder{}
 	}
@@ -47,7 +49,7 @@ func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, audit
 		banStore:       banStore,
 		sessionManager: sessionManager,
 		auditRecorder:  auditRecorder,
-		proxyCloser:    proxyCloser,
+		proxyGovernance: proxyGovernance,
 	}
 }
 
@@ -267,13 +269,15 @@ func (h *Handler) DisableProxy(ctx *httppkg.Context) (any, error) {
 		return nil, err
 	}
 
-	h.banStore.DisableProxy(proxyName, req.Reason, req.Operator)
-
 	result := "disabled"
-	if h.proxyCloser != nil {
-		if h.proxyCloser.CloseProxyByName(proxyName) {
-			result = "disabled_and_closed"
+	if h.proxyGovernance != nil {
+		proxyResult, err := h.proxyGovernance.DisableProxy(proxyName, governance.ManualProxySource(), req.Reason, req.Operator)
+		if err != nil {
+			return nil, err
 		}
+		result = proxyResult.Result
+	} else {
+		h.banStore.DisableProxy(proxyName, req.Reason, req.Operator)
 	}
 	h.recordAudit("disable_proxy", "", "", req.Operator, result, proxyName)
 
@@ -299,27 +303,19 @@ func (h *Handler) EnableProxy(ctx *httppkg.Context) (any, error) {
 		return nil, err
 	}
 
-	h.banStore.EnableProxy(proxyName)
-
-	resp := ProxyActionResponse{
-		ProxyName: proxyName,
-		Result:    "enabled",
-	}
-
-	clientID := strings.TrimSpace(req.ClientID)
-	if clientID != "" && h.sessionManager != nil {
-		if session, ok := h.sessionManager.GetByClientID(clientID); ok {
-			if h.sessionManager.DisconnectByRunID(session.RunID) {
-				resp.DisconnectResult = "disconnected"
-			} else {
-				resp.DisconnectResult = "already_offline"
-			}
-		} else {
-			resp.DisconnectResult = "client_not_found"
+	resp := ProxyActionResponse{ProxyName: proxyName}
+	if h.proxyGovernance != nil {
+		proxyResult, err := h.proxyGovernance.EnableProxy(proxyName, governance.ManualProxySource())
+		if err != nil {
+			return nil, err
 		}
+		resp.Result = proxyResult.Result
+	} else {
+		h.banStore.EnableProxy(proxyName)
+		resp.Result = "enabled"
 	}
 
-	h.recordAudit("enable_proxy", clientID, "", req.Operator, resp.Result, proxyName)
+	h.recordAudit("enable_proxy", strings.TrimSpace(req.ClientID), "", req.Operator, resp.Result, proxyName)
 
 	return resp, nil
 }

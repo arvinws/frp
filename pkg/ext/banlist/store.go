@@ -15,6 +15,8 @@
 package banlist
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 )
@@ -22,6 +24,8 @@ import (
 const (
 	StatusEnabled  = "enabled"
 	StatusDisabled = "disabled"
+
+	ProxyDisableSourceManual = "manual"
 )
 
 // ClientBanRecord is the external representation of a client's governance status.
@@ -31,6 +35,20 @@ type ClientBanRecord struct {
 	Reason    string    `json:"reason,omitempty"`
 	Operator  string    `json:"operator,omitempty"`
 	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+}
+
+type ProxyBanSourceRecord struct {
+	Source    string    `json:"source"`
+	Reason    string    `json:"reason,omitempty"`
+	Operator  string    `json:"operator,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+}
+
+type ProxyBanRecord struct {
+	ProxyName  string                `json:"proxyName"`
+	Status     string                `json:"status"`
+	Sources    []ProxyBanSourceRecord `json:"sources,omitempty"`
+	UpdatedAt  time.Time             `json:"updatedAt,omitempty"`
 }
 
 // Store defines banlist operations.
@@ -47,6 +65,9 @@ type Store interface {
 
 	DisableProxy(proxyName, reason, operator string)
 	EnableProxy(proxyName string)
+	DisableProxySource(proxyName, source, reason, operator string) bool
+	EnableProxySource(proxyName, source string) bool
+	GetProxy(proxyName string) ProxyBanRecord
 	IsProxyDisabled(proxyName string) bool
 }
 
@@ -58,7 +79,7 @@ type MemoryStore struct {
 	bannedIPs     map[string]ipBanEntry // ip -> ban info
 	ipsByClientID map[string][]string   // clientID -> []ip
 
-	disabledProxies map[string]banEntry // proxyName -> ban info
+	disabledProxies map[string]map[string]banEntry // proxyName -> source -> ban info
 }
 
 type banEntry struct {
@@ -79,7 +100,7 @@ func NewMemoryStore() *MemoryStore {
 		disabled:        make(map[string]banEntry),
 		bannedIPs:       make(map[string]ipBanEntry),
 		ipsByClientID:   make(map[string][]string),
-		disabledProxies: make(map[string]banEntry),
+		disabledProxies: make(map[string]map[string]banEntry),
 	}
 }
 
@@ -218,25 +239,99 @@ func (s *MemoryStore) IsIPDisabled(ip string) (bool, ClientBanRecord) {
 }
 
 func (s *MemoryStore) DisableProxy(proxyName, reason, operator string) {
+	_ = s.DisableProxySource(proxyName, ProxyDisableSourceManual, reason, operator)
+}
+
+func (s *MemoryStore) EnableProxy(proxyName string) {
+	_ = s.EnableProxySource(proxyName, ProxyDisableSourceManual)
+}
+
+func (s *MemoryStore) DisableProxySource(proxyName, source, reason, operator string) bool {
 	if proxyName == "" {
-		return
+		return false
+	}
+	if source == "" {
+		source = ProxyDisableSourceManual
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.disabledProxies[proxyName] = banEntry{
+
+	sources, ok := s.disabledProxies[proxyName]
+	if !ok {
+		sources = make(map[string]banEntry)
+		s.disabledProxies[proxyName] = sources
+	}
+
+	old, exists := sources[source]
+	changed := !exists || old.reason != reason || old.operator != operator
+	sources[source] = banEntry{
 		reason:    reason,
 		operator:  operator,
 		updatedAt: time.Now(),
 	}
+	return changed
 }
 
-func (s *MemoryStore) EnableProxy(proxyName string) {
+func (s *MemoryStore) EnableProxySource(proxyName, source string) bool {
 	if proxyName == "" {
-		return
+		return false
+	}
+	if source == "" {
+		source = ProxyDisableSourceManual
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.disabledProxies, proxyName)
+
+	sources, ok := s.disabledProxies[proxyName]
+	if !ok {
+		return false
+	}
+	if _, exists := sources[source]; !exists {
+		return false
+	}
+	delete(sources, source)
+	if len(sources) == 0 {
+		delete(s.disabledProxies, proxyName)
+	}
+	return true
+}
+
+func (s *MemoryStore) GetProxy(proxyName string) ProxyBanRecord {
+	if proxyName == "" {
+		return ProxyBanRecord{Status: StatusEnabled}
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	sources, ok := s.disabledProxies[proxyName]
+	if !ok || len(sources) == 0 {
+		return ProxyBanRecord{
+			ProxyName: proxyName,
+			Status:    StatusEnabled,
+		}
+	}
+
+	record := ProxyBanRecord{
+		ProxyName: proxyName,
+		Status:    StatusDisabled,
+		Sources:   make([]ProxyBanSourceRecord, 0, len(sources)),
+	}
+	for source, entry := range sources {
+		record.Sources = append(record.Sources, ProxyBanSourceRecord{
+			Source:    source,
+			Reason:    entry.reason,
+			Operator:  entry.operator,
+			UpdatedAt: entry.updatedAt,
+		})
+		if entry.updatedAt.After(record.UpdatedAt) {
+			record.UpdatedAt = entry.updatedAt
+		}
+	}
+	slices.SortFunc(record.Sources, func(a, b ProxyBanSourceRecord) int {
+		return cmp.Compare(a.Source, b.Source)
+	})
+	return record
 }
 
 func (s *MemoryStore) IsProxyDisabled(proxyName string) bool {
@@ -245,8 +340,8 @@ func (s *MemoryStore) IsProxyDisabled(proxyName string) bool {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	_, ok := s.disabledProxies[proxyName]
-	return ok
+	sources, ok := s.disabledProxies[proxyName]
+	return ok && len(sources) > 0
 }
 
 func appendUnique(slice []string, val string) []string {

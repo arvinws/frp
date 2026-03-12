@@ -188,6 +188,27 @@ func (ctl *Control) handleNatHoleResp(m msg.Message) {
 	}
 }
 
+func (ctl *Control) handleProxyControl(m msg.Message) {
+	xl := ctl.xl
+	inMsg := m.(*msg.ProxyControl)
+	proxyName := naming.StripUserPrefix(ctl.sessionCtx.Common.User, inMsg.ProxyName)
+	if proxyName == "" {
+		xl.Warnf("received proxy control with empty proxy name")
+		return
+	}
+
+	switch inMsg.Action {
+	case msg.ProxyControlActionDisable:
+		ctl.pm.SetProxyRuntimeDisabled(proxyName, true)
+		xl.Infof("proxy [%s] disabled by server", proxyName)
+	case msg.ProxyControlActionEnable:
+		ctl.pm.SetProxyRuntimeDisabled(proxyName, false)
+		xl.Infof("proxy [%s] enabled by server", proxyName)
+	default:
+		xl.Warnf("received unsupported proxy control action [%s] for [%s]", inMsg.Action, proxyName)
+	}
+}
+
 func (ctl *Control) handlePong(m msg.Message) {
 	xl := ctl.xl
 	inMsg := m.(*msg.Pong)
@@ -235,6 +256,7 @@ func (ctl *Control) registerMsgHandlers() {
 	ctl.msgDispatcher.RegisterHandler(&msg.ReqWorkConn{}, msg.AsyncHandler(ctl.handleReqWorkConn))
 	ctl.msgDispatcher.RegisterHandler(&msg.NewProxyResp{}, ctl.handleNewProxyResp)
 	ctl.msgDispatcher.RegisterHandler(&msg.NatHoleResp{}, ctl.handleNatHoleResp)
+	ctl.msgDispatcher.RegisterHandler(&msg.ProxyControl{}, ctl.handleProxyControl)
 	ctl.msgDispatcher.RegisterHandler(&msg.Pong{}, ctl.handlePong)
 }
 

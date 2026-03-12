@@ -136,10 +136,14 @@ const handleDisableProxy = async () => {
 const handleEnableProxy = async () => {
   actionLoading.value = true
   try {
-    await enableProxy(props.proxy.name, {
+    const response = await enableProxy(props.proxy.name, {
       clientID: props.proxy.clientID || undefined,
     })
-    ElMessage.success(t('governance.enableProxySuccess'))
+    if (response.result === 'still_disabled') {
+      ElMessage.warning(t('governance.enableProxyStillDisabled'))
+    } else {
+      ElMessage.success(t('governance.enableProxySuccess'))
+    }
     emit('refresh')
   } catch (error: any) {
     ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)

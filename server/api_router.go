@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	govadminapi "github.com/fatedier/frp/pkg/ext/adminapi"
+	schedulerapi "github.com/fatedier/frp/pkg/ext/scheduler"
 	httppkg "github.com/fatedier/frp/pkg/util/http"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	dashboardapi "github.com/fatedier/frp/server/http"
@@ -38,7 +39,8 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	}
 
 	apiController := dashboardapi.NewController(svr.cfg, svr.clientRegistry, svr.pxyManager, svr.clientBanStore)
-	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder, svr.ctlManager)
+	governanceHandler := govadminapi.NewHandler(svr.clientBanStore, svr.sessionManager, svr.auditRecorder, svr.proxyGovernance)
+	scheduleHandler := schedulerapi.NewHandler(svr.scheduleService)
 
 	// apis
 	subRouter.HandleFunc("/api/serverinfo", httppkg.MakeHTTPHandlerFunc(apiController.APIServerInfo)).Methods("GET")
@@ -57,6 +59,16 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	).Methods("POST")
 	subRouter.HandleFunc("/api/admin/proxies/{name}/disable", httppkg.MakeHTTPHandlerFunc(governanceHandler.DisableProxy)).Methods("POST")
 	subRouter.HandleFunc("/api/admin/proxies/{name}/enable", httppkg.MakeHTTPHandlerFunc(governanceHandler.EnableProxy)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/proxy-options", httppkg.MakeHTTPHandlerFunc(apiController.APIProxyOptions)).Methods("GET")
+	subRouter.HandleFunc("/api/admin/schedules", httppkg.MakeHTTPHandlerFunc(scheduleHandler.ListTasks)).Methods("GET")
+	subRouter.HandleFunc("/api/admin/schedules", httppkg.MakeHTTPHandlerFunc(scheduleHandler.CreateTask)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/schedules/{id}", httppkg.MakeHTTPHandlerFunc(scheduleHandler.GetTask)).Methods("GET")
+	subRouter.HandleFunc("/api/admin/schedules/{id}", httppkg.MakeHTTPHandlerFunc(scheduleHandler.UpdateTask)).Methods("PUT")
+	subRouter.HandleFunc("/api/admin/schedules/{id}", httppkg.MakeHTTPHandlerFunc(scheduleHandler.DeleteTask)).Methods("DELETE")
+	subRouter.HandleFunc("/api/admin/schedules/{id}/enable", httppkg.MakeHTTPHandlerFunc(scheduleHandler.EnableTask)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/schedules/{id}/disable", httppkg.MakeHTTPHandlerFunc(scheduleHandler.DisableTask)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/schedules/{id}/run", httppkg.MakeHTTPHandlerFunc(scheduleHandler.RunTask)).Methods("POST")
+	subRouter.HandleFunc("/api/admin/schedules/{id}/logs", httppkg.MakeHTTPHandlerFunc(scheduleHandler.ListLogs)).Methods("GET")
 	subRouter.HandleFunc("/api/proxies", httppkg.MakeHTTPHandlerFunc(apiController.DeleteProxies)).Methods("DELETE")
 	subRouter.HandleFunc("/api/admin/server/restart", httppkg.MakeHTTPHandlerFunc(svr.APIRestart)).Methods("POST")
 

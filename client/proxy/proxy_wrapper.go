@@ -41,6 +41,7 @@ const (
 	ProxyPhaseStartErr    = "start error"
 	ProxyPhaseRunning     = "running"
 	ProxyPhaseCheckFailed = "check failed"
+	ProxyPhaseDisabled    = "disabled"
 	ProxyPhaseClosed      = "closed"
 )
 
@@ -84,6 +85,7 @@ type Wrapper struct {
 	closeCh          chan struct{}
 	healthNotifyCh   chan struct{}
 	mu               sync.RWMutex
+	runtimeDisabled  bool
 
 	xl  *xlog.Logger
 	ctx context.Context
@@ -183,6 +185,38 @@ func (pw *Wrapper) Stop() {
 	pw.close()
 }
 
+func (pw *Wrapper) notifyCheckWorker() {
+	_ = errors.PanicToError(func() {
+		select {
+		case pw.healthNotifyCh <- struct{}{}:
+		default:
+		}
+	})
+}
+
+func (pw *Wrapper) SetRuntimeDisabled(disabled bool) {
+	pw.mu.Lock()
+	if pw.runtimeDisabled == disabled {
+		pw.mu.Unlock()
+		return
+	}
+	pw.runtimeDisabled = disabled
+	if disabled {
+		pw.pxy.Close()
+		pw.Phase = ProxyPhaseDisabled
+		pw.Err = "disabled by server"
+	} else {
+		pw.Phase = ProxyPhaseNew
+		pw.Err = ""
+	}
+	pw.mu.Unlock()
+
+	if disabled {
+		pw.close()
+	}
+	pw.notifyCheckWorker()
+}
+
 func (pw *Wrapper) close() {
 	_ = pw.handler(&event.CloseProxyPayload{
 		CloseProxyMsg: &msg.CloseProxy{
@@ -200,10 +234,23 @@ func (pw *Wrapper) checkWorker() {
 	for {
 		// check proxy status
 		now := time.Now()
-		if atomic.LoadUint32(&pw.health) == 0 {
+		pw.mu.RLock()
+		runtimeDisabled := pw.runtimeDisabled
+		phase := pw.Phase
+		pw.mu.RUnlock()
+
+		if runtimeDisabled {
+			if phase != ProxyPhaseDisabled {
+				pw.mu.Lock()
+				pw.Phase = ProxyPhaseDisabled
+				pw.Err = "disabled by server"
+				pw.mu.Unlock()
+			}
+		} else if atomic.LoadUint32(&pw.health) == 0 {
 			pw.mu.Lock()
 			if pw.Phase == ProxyPhaseNew ||
 				pw.Phase == ProxyPhaseCheckFailed ||
+				pw.Phase == ProxyPhaseDisabled ||
 				(pw.Phase == ProxyPhaseWaitStart && now.After(pw.lastSendStartMsg.Add(waitResponseTimeout))) ||
 				(pw.Phase == ProxyPhaseStartErr && now.After(pw.lastStartErr.Add(startErrTimeout))) {
 

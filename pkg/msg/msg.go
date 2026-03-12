@@ -38,6 +38,7 @@ const (
 	TypeNatHoleResp        = 'm'
 	TypeNatHoleSid         = '5'
 	TypeNatHoleReport      = '6'
+	TypeProxyControl       = '7'
 )
 
 var msgTypeMap = map[byte]any{
@@ -59,9 +60,15 @@ var msgTypeMap = map[byte]any{
 	TypeNatHoleResp:        NatHoleResp{},
 	TypeNatHoleSid:         NatHoleSid{},
 	TypeNatHoleReport:      NatHoleReport{},
+	TypeProxyControl:       ProxyControl{},
 }
 
 var TypeNameNatHoleResp = reflect.TypeOf(&NatHoleResp{}).Elem().Name()
+
+const (
+	ProxyControlActionDisable = "disable"
+	ProxyControlActionEnable  = "enable"
+)
 
 type ClientSpec struct {
 	// Due to the support of VirtualClient, frps needs to know the client type in order to
@@ -141,6 +148,11 @@ type NewProxyResp struct {
 
 type CloseProxy struct {
 	ProxyName string `json:"proxy_name,omitempty"`
+}
+
+type ProxyControl struct {
+	ProxyName string `json:"proxy_name,omitempty"`
+	Action    string `json:"action,omitempty"`
 }
 
 type NewWorkConn struct {

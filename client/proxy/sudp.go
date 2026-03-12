@@ -61,6 +61,10 @@ func NewSUDPProxy(baseProxy *BaseProxy, cfg v1.ProxyConfigurer) Proxy {
 }
 
 func (pxy *SUDPProxy) Run() (err error) {
+	pxy.mu.Lock()
+	pxy.closeCh = make(chan struct{})
+	pxy.mu.Unlock()
+
 	pxy.localAddr, err = net.ResolveUDPAddr("udp", net.JoinHostPort(pxy.cfg.LocalIP, strconv.Itoa(pxy.cfg.LocalPort)))
 	if err != nil {
 		return

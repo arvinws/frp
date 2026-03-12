@@ -103,6 +103,19 @@ func (cm *ControlManager) CloseProxyByName(name string) bool {
 	return false
 }
 
+func (cm *ControlManager) SendProxyControlByRunID(runID, proxyName, action string) bool {
+	cm.mu.RLock()
+	ctl, ok := cm.ctlsByRunID[runID]
+	cm.mu.RUnlock()
+	if !ok || ctl == nil {
+		return false
+	}
+	if err := ctl.SendProxyControl(proxyName, action); err != nil {
+		return false
+	}
+	return true
+}
+
 func (cm *ControlManager) Close() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -398,6 +411,19 @@ func (ctl *Control) registerMsgHandlers() {
 	ctl.msgDispatcher.RegisterHandler(&msg.NatHoleClient{}, msg.AsyncHandler(ctl.handleNatHoleClient))
 	ctl.msgDispatcher.RegisterHandler(&msg.NatHoleReport{}, msg.AsyncHandler(ctl.handleNatHoleReport))
 	ctl.msgDispatcher.RegisterHandler(&msg.CloseProxy{}, ctl.handleCloseProxy)
+}
+
+func (ctl *Control) SendProxyControl(proxyName, action string) error {
+	if strings.TrimSpace(proxyName) == "" {
+		return fmt.Errorf("proxy name is required")
+	}
+	if strings.TrimSpace(action) == "" {
+		return fmt.Errorf("proxy control action is required")
+	}
+	return ctl.msgDispatcher.Send(&msg.ProxyControl{
+		ProxyName: proxyName,
+		Action:    action,
+	})
 }
 
 func (ctl *Control) handleNewProxy(m msg.Message) {

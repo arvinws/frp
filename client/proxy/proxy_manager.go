@@ -33,6 +33,7 @@ import (
 
 type Manager struct {
 	proxies            map[string]*Wrapper
+	runtimeDisabled    map[string]bool
 	msgTransporter     transport.MessageTransporter
 	inWorkConnCallback func(*v1.ProxyBaseConfig, net.Conn, *msg.StartWorkConn) bool
 	vnetController     *vnet.Controller
@@ -54,13 +55,14 @@ func NewManager(
 	vnetController *vnet.Controller,
 ) *Manager {
 	return &Manager{
-		proxies:        make(map[string]*Wrapper),
-		msgTransporter: msgTransporter,
-		vnetController: vnetController,
-		closed:         false,
-		encryptionKey:  encryptionKey,
-		clientCfg:      clientCfg,
-		ctx:            ctx,
+		proxies:         make(map[string]*Wrapper),
+		runtimeDisabled: make(map[string]bool),
+		msgTransporter:  msgTransporter,
+		vnetController:  vnetController,
+		closed:          false,
+		encryptionKey:   encryptionKey,
+		clientCfg:       clientCfg,
+		ctx:             ctx,
 	}
 }
 
@@ -117,6 +119,21 @@ func (pm *Manager) HandleEvent(payload any) error {
 	return pm.msgTransporter.Send(m)
 }
 
+func (pm *Manager) SetProxyRuntimeDisabled(name string, disabled bool) bool {
+	pm.mu.Lock()
+	if disabled {
+		pm.runtimeDisabled[name] = true
+	} else {
+		delete(pm.runtimeDisabled, name)
+	}
+	pxy, ok := pm.proxies[name]
+	pm.mu.Unlock()
+	if ok {
+		pxy.SetRuntimeDisabled(disabled)
+	}
+	return ok
+}
+
 func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -169,6 +186,9 @@ func (pm *Manager) UpdateAll(proxyCfgs []v1.ProxyConfigurer) {
 			pxy := NewWrapper(pm.ctx, cfg, pm.clientCfg, pm.encryptionKey, pm.HandleEvent, pm.msgTransporter, pm.vnetController)
 			if pm.inWorkConnCallback != nil {
 				pxy.SetInWorkConnCallback(pm.inWorkConnCallback)
+			}
+			if pm.runtimeDisabled[name] {
+				pxy.SetRuntimeDisabled(true)
 			}
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
