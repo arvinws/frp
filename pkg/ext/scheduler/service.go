@@ -269,6 +269,9 @@ func (s *Service) executeTask(task Task, action TaskAction, scheduledAt time.Tim
 	if action != TaskActionStart && action != TaskActionStop {
 		return RunResult{}, fmt.Errorf("unsupported task action %q", action)
 	}
+	if !hasRule(task, action) {
+		return RunResult{}, fmt.Errorf("%s rule is not configured", action)
+	}
 	executedAt := s.nowFn()
 	source := governance.ScheduleProxySource(task.ID)
 	logs := make([]ExecutionLog, 0, len(task.Targets))
@@ -378,27 +381,27 @@ func (s *Service) nextScheduledAt(task Task, action TaskAction, now time.Time) t
 	if !task.Enabled {
 		return time.Time{}
 	}
-	rule := task.StartRule
-	if action == TaskActionStop {
-		rule = task.StopRule
+	rule := ruleForAction(task, action)
+	if rule == nil {
+		return time.Time{}
 	}
 	loc, err := time.LoadLocation(task.Timezone)
 	if err != nil {
 		return time.Time{}
 	}
-	return nextRuleTime(rule, now, loc)
+	return nextRuleTime(*rule, now, loc)
 }
 
 func (s *Service) scheduledDueAt(task Task, action TaskAction, now time.Time) (time.Time, bool) {
-	rule := task.StartRule
-	if action == TaskActionStop {
-		rule = task.StopRule
+	rule := ruleForAction(task, action)
+	if rule == nil {
+		return time.Time{}, false
 	}
 	loc, err := time.LoadLocation(task.Timezone)
 	if err != nil {
 		return time.Time{}, false
 	}
-	candidate := latestCandidate(rule, now, loc)
+	candidate := latestCandidate(*rule, now, loc)
 	if candidate.IsZero() {
 		return time.Time{}, false
 	}
@@ -437,6 +440,9 @@ func validateTask(task Task) error {
 		}
 		seen[target.ProxyName] = struct{}{}
 	}
+	if task.StartRule == nil && task.StopRule == nil {
+		return fmt.Errorf("at least one schedule rule is required")
+	}
 	if err := validateRule(task.StartRule); err != nil {
 		return fmt.Errorf("startRule: %w", err)
 	}
@@ -446,7 +452,11 @@ func validateTask(task Task) error {
 	return nil
 }
 
-func validateRule(rule Rule) error {
+
+func validateRule(rule *Rule) error {
+	if rule == nil {
+		return nil
+	}
 	if _, _, err := parseRuleClock(rule.Time); err != nil {
 		return err
 	}
@@ -497,12 +507,28 @@ func normalizeTargets(targets []Target) []Target {
 	return out
 }
 
-func normalizeRule(rule Rule) Rule {
-	rule.Date = strings.TrimSpace(rule.Date)
-	rule.Time = strings.TrimSpace(rule.Time)
-	rule.DaysOfWeek = slices.Clone(rule.DaysOfWeek)
-	slices.Sort(rule.DaysOfWeek)
-	return rule
+
+func normalizeRule(rule *Rule) *Rule {
+	if rule == nil {
+		return nil
+	}
+	next := *rule
+	next.Date = strings.TrimSpace(next.Date)
+	next.Time = strings.TrimSpace(next.Time)
+	next.DaysOfWeek = slices.Clone(next.DaysOfWeek)
+	slices.Sort(next.DaysOfWeek)
+	return &next
+}
+
+func ruleForAction(task Task, action TaskAction) *Rule {
+	if action == TaskActionStop {
+		return task.StopRule
+	}
+	return task.StartRule
+}
+
+func hasRule(task Task, action TaskAction) bool {
+	return ruleForAction(task, action) != nil
 }
 
 func parseRuleClock(value string) (int, int, error) {

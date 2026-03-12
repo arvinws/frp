@@ -74,8 +74,8 @@ func TestValidateTaskWeekly(t *testing.T) {
 		Enabled:  true,
 		Timezone: "Asia/Shanghai",
 		Targets:  []Target{{ProxyName: "alice.tcp"}},
-		StartRule: Rule{Mode: RuleModeWeekly, Time: "09:00", DaysOfWeek: []int{1, 2, 3, 4, 5}},
-		StopRule:  Rule{Mode: RuleModeWeekly, Time: "18:00", DaysOfWeek: []int{1, 2, 3, 4, 5}},
+		StartRule: &Rule{Mode: RuleModeWeekly, Time: "09:00", DaysOfWeek: []int{1, 2, 3, 4, 5}},
+		StopRule:  &Rule{Mode: RuleModeWeekly, Time: "18:00", DaysOfWeek: []int{1, 2, 3, 4, 5}},
 	})
 	if err != nil {
 		t.Fatalf("validate task: %v", err)
@@ -97,8 +97,8 @@ func TestRunPendingExecutesDueTasks(t *testing.T) {
 		Enabled:  true,
 		Timezone: "Asia/Shanghai",
 		Targets:  []Target{{ProxyName: "alice.tcp"}},
-		StartRule: Rule{Mode: RuleModeDaily, Time: "10:00"},
-		StopRule:  Rule{Mode: RuleModeDaily, Time: "18:00"},
+		StartRule: &Rule{Mode: RuleModeDaily, Time: "10:00"},
+		StopRule:  &Rule{Mode: RuleModeDaily, Time: "18:00"},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -133,8 +133,8 @@ func TestManualRunSuppressesImmediateDueSchedule(t *testing.T) {
 		Enabled:  true,
 		Timezone: "Asia/Shanghai",
 		Targets:  []Target{{ProxyName: "alice.tcp"}},
-		StartRule: Rule{Mode: RuleModeDaily, Time: "10:00"},
-		StopRule:  Rule{Mode: RuleModeDaily, Time: "18:00"},
+		StartRule: &Rule{Mode: RuleModeDaily, Time: "10:00"},
+		StopRule:  &Rule{Mode: RuleModeDaily, Time: "18:00"},
 	}
 
 	if _, err := svc.RunTask("task-1", TaskActionStop); err != nil {
@@ -154,5 +154,32 @@ func TestManualRunSuppressesImmediateDueSchedule(t *testing.T) {
 	}
 	if updated.LastExecutionAction != TaskActionStop {
 		t.Fatalf("expected last execution action stop, got %q", updated.LastExecutionAction)
+	}
+}
+
+func TestValidateTaskAllowsSingleRule(t *testing.T) {
+	err := validateTask(Task{
+		ID:       "task-2",
+		Name:     "Nightly stop",
+		Enabled:  true,
+		Timezone: "Asia/Shanghai",
+		Targets:  []Target{{ProxyName: "alice.tcp"}},
+		StopRule: &Rule{Mode: RuleModeDaily, Time: "23:00"},
+	})
+	if err != nil {
+		t.Fatalf("validate single-rule task: %v", err)
+	}
+}
+
+func TestValidateTaskRejectsMissingRules(t *testing.T) {
+	err := validateTask(Task{
+		ID:       "task-3",
+		Name:     "Invalid",
+		Enabled:  true,
+		Timezone: "Asia/Shanghai",
+		Targets:  []Target{{ProxyName: "alice.tcp"}},
+	})
+	if err == nil {
+		t.Fatalf("expected validation error when both rules are missing")
 	}
 }

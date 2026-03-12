@@ -94,10 +94,20 @@
               >
                 {{ row.enabled ? t('schedule.disableTask') : t('schedule.enableTask') }}
               </el-button>
-              <el-button size="small" :icon="VideoPlay" @click="runTask(row, 'start')">
+              <el-button
+                size="small"
+                :icon="VideoPlay"
+                :disabled="!hasStartRule(row)"
+                @click="runTask(row, 'start')"
+              >
                 {{ t('schedule.runStart') }}
               </el-button>
-              <el-button size="small" :icon="VideoPause" @click="runTask(row, 'stop')">
+              <el-button
+                size="small"
+                :icon="VideoPause"
+                :disabled="!hasStopRule(row)"
+                @click="runTask(row, 'stop')"
+              >
                 {{ t('schedule.runStop') }}
               </el-button>
               <el-button size="small" :icon="Tickets" @click="openLogsDialog(row)">
@@ -141,7 +151,15 @@
 
             <div class="rule-grid">
               <div class="rule-card">
-                <h3>{{ t('schedule.startRule') }}</h3>
+                <div class="rule-card-header">
+                  <h3>{{ t('schedule.startRule') }}</h3>
+                  <el-switch
+                    v-model="startRuleEnabled"
+                    :active-text="t('common.enabled')"
+                    :inactive-text="t('common.disabled')"
+                  />
+                </div>
+                <template v-if="startRuleEnabled">
                 <el-form-item :label="t('schedule.mode')">
                   <el-select v-model="form.startRule.mode">
                     <el-option :label="t('schedule.modeOnce')" value="once" />
@@ -170,11 +188,21 @@
                     <el-checkbox v-for="option in dayOptions" :key="`start-${option.value}`" :label="option.value">
                       {{ option.label }}
                     </el-checkbox>
-                  </el-checkbox-group>
-                </el-form-item>
+                    </el-checkbox-group>
+                  </el-form-item>
+                </template>
+                <p v-else class="rule-disabled-tip">{{ t('schedule.startRuleDisabledTip') }}</p>
               </div>
               <div class="rule-card">
-                <h3>{{ t('schedule.stopRule') }}</h3>
+                <div class="rule-card-header">
+                  <h3>{{ t('schedule.stopRule') }}</h3>
+                  <el-switch
+                    v-model="stopRuleEnabled"
+                    :active-text="t('common.enabled')"
+                    :inactive-text="t('common.disabled')"
+                  />
+                </div>
+                <template v-if="stopRuleEnabled">
                 <el-form-item :label="t('schedule.mode')">
                   <el-select v-model="form.stopRule.mode">
                     <el-option :label="t('schedule.modeOnce')" value="once" />
@@ -203,8 +231,10 @@
                     <el-checkbox v-for="option in dayOptions" :key="`stop-${option.value}`" :label="option.value">
                       {{ option.label }}
                     </el-checkbox>
-                  </el-checkbox-group>
-                </el-form-item>
+                    </el-checkbox-group>
+                  </el-form-item>
+                </template>
+                <p v-else class="rule-disabled-tip">{{ t('schedule.stopRuleDisabledTip') }}</p>
               </div>
             </div>
           </el-form>
@@ -320,6 +350,16 @@ import type {
 } from '../types/schedule'
 import { useI18n } from '../i18n'
 
+interface ScheduleTaskForm {
+  name: string
+  enabled: boolean
+  timezone: string
+  targets: ScheduleTarget[]
+  startRule: ScheduleRule
+  stopRule: ScheduleRule
+  remark?: string
+}
+
 const { t } = useI18n()
 
 const loading = ref(false)
@@ -335,27 +375,33 @@ const editingTaskId = ref<string | null>(null)
 const proxyOptions = ref<ProxyOption[]>([])
 const proxyOptionsLoading = ref(false)
 const selectedProxyNames = ref<string[]>([])
+const startRuleEnabled = ref(true)
+const stopRuleEnabled = ref(true)
 const proxyFilters = reactive({
   keyword: '',
   type: '',
   status: '',
 })
 
-const form = reactive<ScheduleTaskPayload>({
+const defaultStartRule = (): ScheduleRule => ({
+  mode: 'daily',
+  time: '09:00',
+  daysOfWeek: [1, 2, 3, 4, 5],
+})
+
+const defaultStopRule = (): ScheduleRule => ({
+  mode: 'daily',
+  time: '18:00',
+  daysOfWeek: [1, 2, 3, 4, 5],
+})
+
+const form = reactive<ScheduleTaskForm>({
   name: '',
   enabled: true,
   timezone: 'Asia/Shanghai',
   targets: [],
-  startRule: {
-    mode: 'daily',
-    time: '09:00',
-    daysOfWeek: [1, 2, 3, 4, 5],
-  },
-  stopRule: {
-    mode: 'daily',
-    time: '18:00',
-    daysOfWeek: [1, 2, 3, 4, 5],
-  },
+  startRule: defaultStartRule(),
+  stopRule: defaultStopRule(),
   remark: '',
 })
 
@@ -431,9 +477,11 @@ const resetForm = () => {
   form.enabled = true
   form.timezone = 'Asia/Shanghai'
   form.targets = []
-  form.startRule = { mode: 'daily', time: '09:00', daysOfWeek: [1, 2, 3, 4, 5] }
-  form.stopRule = { mode: 'daily', time: '18:00', daysOfWeek: [1, 2, 3, 4, 5] }
+  form.startRule = defaultStartRule()
+  form.stopRule = defaultStopRule()
   form.remark = ''
+  startRuleEnabled.value = true
+  stopRuleEnabled.value = true
   selectedProxyNames.value = []
   proxyFilters.keyword = ''
   proxyFilters.type = ''
@@ -469,8 +517,10 @@ const openEditDialog = async (task: ScheduleTask) => {
   form.name = task.name
   form.enabled = task.enabled
   form.timezone = task.timezone
-  form.startRule = cloneRule(task.startRule)
-  form.stopRule = cloneRule(task.stopRule)
+  startRuleEnabled.value = !!task.startRule
+  stopRuleEnabled.value = !!task.stopRule
+  form.startRule = cloneRule(task.startRule, defaultStartRule)
+  form.stopRule = cloneRule(task.stopRule, defaultStopRule)
   form.remark = task.remark || ''
   selectedProxyNames.value = task.targets.map((target) => target.proxyName)
   dialogVisible.value = true
@@ -497,6 +547,10 @@ const buildPayload = (): ScheduleTaskPayload | null => {
     ElMessage.warning(t('schedule.validationTargets'))
     return null
   }
+  if (!startRuleEnabled.value && !stopRuleEnabled.value) {
+    ElMessage.warning(t('schedule.validationAtLeastOneRule'))
+    return null
+  }
 
   const payload: ScheduleTaskPayload = {
     name: form.name.trim(),
@@ -511,12 +565,12 @@ const buildPayload = (): ScheduleTaskPayload | null => {
         type: option?.type,
       }
     }),
-    startRule: sanitizeRule(form.startRule),
-    stopRule: sanitizeRule(form.stopRule),
+    startRule: startRuleEnabled.value ? sanitizeRule(form.startRule) : undefined,
+    stopRule: stopRuleEnabled.value ? sanitizeRule(form.stopRule) : undefined,
     remark: form.remark?.trim(),
   }
 
-  for (const rule of [payload.startRule, payload.stopRule]) {
+  for (const rule of [payload.startRule, payload.stopRule].filter(Boolean) as ScheduleRule[]) {
     if (!rule.time) {
       ElMessage.warning(t('schedule.validationRuleTime'))
       return null
@@ -574,6 +628,10 @@ const toggleTask = async (task: ScheduleTask) => {
 }
 
 const runTask = async (task: ScheduleTask, action: 'start' | 'stop') => {
+  if ((action === 'start' && !task.startRule) || (action === 'stop' && !task.stopRule)) {
+    ElMessage.warning(t('schedule.validationActionRuleMissing'))
+    return
+  }
   try {
     await runSchedule(task.id, action)
     ElMessage.success(
@@ -617,7 +675,10 @@ const formatTimestamp = (timestamp?: number, timezone?: string) => {
   }).format(date)
 }
 
-const formatRule = (rule: ScheduleRule) => {
+const formatRule = (rule?: ScheduleRule) => {
+  if (!rule) {
+    return t('schedule.notConfigured')
+  }
   if (rule.mode === 'once') {
     return `${rule.date || '-'} ${rule.time}`
   }
@@ -641,12 +702,24 @@ const formatTargetNames = (targets: ScheduleTarget[]) => {
   return targets.map((target) => target.proxyName).join(', ')
 }
 
-const cloneRule = (rule: ScheduleRule): ScheduleRule => ({
-  mode: rule.mode,
-  date: rule.date,
-  time: rule.time,
-  daysOfWeek: rule.daysOfWeek ? [...rule.daysOfWeek] : [],
-})
+const hasStartRule = (task: ScheduleTask) => !!task.startRule
+
+const hasStopRule = (task: ScheduleTask) => !!task.stopRule
+
+const cloneRule = (
+  rule: ScheduleRule | undefined,
+  factory: () => ScheduleRule,
+): ScheduleRule => {
+  if (!rule) {
+    return factory()
+  }
+  return {
+    mode: rule.mode,
+    date: rule.date,
+    time: rule.time,
+    daysOfWeek: rule.daysOfWeek ? [...rule.daysOfWeek] : [],
+  }
+}
 
 const sanitizeRule = (rule: ScheduleRule): ScheduleRule => {
   const next: ScheduleRule = {
@@ -763,6 +836,24 @@ fetchTasks()
 .rule-card h3,
 .selector-header h3 {
   margin: 0 0 16px;
+}
+
+.rule-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rule-card-header h3 {
+  margin: 0;
+}
+
+.rule-disabled-tip {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .selector-header {

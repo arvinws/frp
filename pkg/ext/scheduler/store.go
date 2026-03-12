@@ -217,8 +217,16 @@ func writeJSONFile(path string, payload any) error {
 func cloneTask(task Task) Task {
 	out := task
 	out.Targets = slices.Clone(task.Targets)
-	out.StartRule.DaysOfWeek = slices.Clone(task.StartRule.DaysOfWeek)
-	out.StopRule.DaysOfWeek = slices.Clone(task.StopRule.DaysOfWeek)
+	if task.StartRule != nil {
+		startRule := *task.StartRule
+		startRule.DaysOfWeek = slices.Clone(task.StartRule.DaysOfWeek)
+		out.StartRule = &startRule
+	}
+	if task.StopRule != nil {
+		stopRule := *task.StopRule
+		stopRule.DaysOfWeek = slices.Clone(task.StopRule.DaysOfWeek)
+		out.StopRule = &stopRule
+	}
 	return out
 }
 

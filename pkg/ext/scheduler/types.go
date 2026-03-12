@@ -39,21 +39,21 @@ type Target struct {
 }
 
 type Task struct {
-	ID                string     `json:"id"`
-	Name              string     `json:"name"`
-	Enabled           bool       `json:"enabled"`
-	Timezone          string     `json:"timezone"`
-	Targets           []Target   `json:"targets"`
-	StartRule         Rule       `json:"startRule"`
-	StopRule          Rule       `json:"stopRule"`
-	Remark            string     `json:"remark,omitempty"`
-	CreatedAt         time.Time  `json:"createdAt"`
-	UpdatedAt         time.Time  `json:"updatedAt"`
-	LastExecutionAt   time.Time  `json:"lastExecutionAt,omitempty"`
-	LastExecutionAction TaskAction `json:"lastExecutionAction,omitempty"`
-	LastExecutionResult string   `json:"lastExecutionResult,omitempty"`
-	LastStartScheduledAt time.Time `json:"lastStartScheduledAt,omitempty"`
-	LastStopScheduledAt  time.Time `json:"lastStopScheduledAt,omitempty"`
+	ID                   string     `json:"id"`
+	Name                 string     `json:"name"`
+	Enabled              bool       `json:"enabled"`
+	Timezone             string     `json:"timezone"`
+	Targets              []Target   `json:"targets"`
+	StartRule            *Rule      `json:"startRule,omitempty"`
+	StopRule             *Rule      `json:"stopRule,omitempty"`
+	Remark               string     `json:"remark,omitempty"`
+	CreatedAt            time.Time  `json:"createdAt"`
+	UpdatedAt            time.Time  `json:"updatedAt"`
+	LastExecutionAt      time.Time  `json:"lastExecutionAt,omitempty"`
+	LastExecutionAction  TaskAction `json:"lastExecutionAction,omitempty"`
+	LastExecutionResult  string     `json:"lastExecutionResult,omitempty"`
+	LastStartScheduledAt time.Time  `json:"lastStartScheduledAt,omitempty"`
+	LastStopScheduledAt  time.Time  `json:"lastStopScheduledAt,omitempty"`
 }
 
 type ExecutionLog struct {

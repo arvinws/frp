@@ -34,8 +34,8 @@ type taskResponse struct {
 	Enabled             bool           `json:"enabled"`
 	Timezone            string         `json:"timezone"`
 	Targets             []Target       `json:"targets"`
-	StartRule           Rule           `json:"startRule"`
-	StopRule            Rule           `json:"stopRule"`
+	StartRule           *Rule          `json:"startRule,omitempty"`
+	StopRule            *Rule          `json:"stopRule,omitempty"`
 	Remark              string         `json:"remark,omitempty"`
 	CreatedAt           int64          `json:"createdAt"`
 	UpdatedAt           int64          `json:"updatedAt"`
@@ -184,7 +184,7 @@ func toHTTPError(err error) error {
 	switch {
 	case strings.Contains(message, "not found"):
 		status = http.StatusNotFound
-	case strings.Contains(message, "required"), strings.Contains(message, "invalid"), strings.Contains(message, "unsupported"), strings.Contains(message, "duplicate"):
+	case strings.Contains(message, "required"), strings.Contains(message, "invalid"), strings.Contains(message, "unsupported"), strings.Contains(message, "duplicate"), strings.Contains(message, "configured"):
 		status = http.StatusBadRequest
 	}
 	return httppkg.NewError(status, message)

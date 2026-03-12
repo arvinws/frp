@@ -22,8 +22,8 @@ export interface ScheduleTask {
   enabled: boolean
   timezone: string
   targets: ScheduleTarget[]
-  startRule: ScheduleRule
-  stopRule: ScheduleRule
+  startRule?: ScheduleRule
+  stopRule?: ScheduleRule
   remark?: string
   createdAt: number
   updatedAt: number
@@ -75,7 +75,7 @@ export interface ScheduleTaskPayload {
   enabled: boolean
   timezone: string
   targets: ScheduleTarget[]
-  startRule: ScheduleRule
-  stopRule: ScheduleRule
+  startRule?: ScheduleRule
+  stopRule?: ScheduleRule
   remark?: string
 }
