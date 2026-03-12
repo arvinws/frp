@@ -63,7 +63,7 @@ var msgTypeMap = map[byte]any{
 	TypeProxyControl:       ProxyControl{},
 }
 
-var TypeNameNatHoleResp = reflect.TypeOf(&NatHoleResp{}).Elem().Name()
+var TypeNameNatHoleResp = reflect.TypeFor[NatHoleResp]().Name()
 
 const (
 	ProxyControlActionDisable = "disable"
