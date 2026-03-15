@@ -39,6 +39,8 @@ type Service struct {
 	proxyMetadataSrc ProxyMetadataProvider
 }
 
+const scheduleProxySourcePrefix = "schedule:"
+
 func NewService(
 	banStore banlist.Store,
 	sessionManager *clientmgr.Manager,
@@ -58,7 +60,7 @@ func ManualProxySource() string {
 }
 
 func ScheduleProxySource(taskID string) string {
-	return "schedule:" + strings.TrimSpace(taskID)
+	return scheduleProxySourcePrefix + strings.TrimSpace(taskID)
 }
 
 func (s *Service) DisableProxy(proxyName, source, reason, operator string) (ProxyActionResult, error) {
@@ -109,6 +111,9 @@ func (s *Service) EnableProxy(proxyName, source string) (ProxyActionResult, erro
 	source = normalizeSource(source)
 
 	changed := s.banStore.EnableProxySource(proxyName, source)
+	if source == ManualProxySource() {
+		changed = s.clearScheduleSources(proxyName) || changed
+	}
 	disabled := s.banStore.IsProxyDisabled(proxyName)
 	controlSent := false
 	result := "already_enabled"
@@ -131,6 +136,18 @@ func (s *Service) EnableProxy(proxyName, source string) (ProxyActionResult, erro
 		Closed:      false,
 		Result:      result,
 	}, nil
+}
+
+func (s *Service) clearScheduleSources(proxyName string) bool {
+	record := s.banStore.GetProxy(proxyName)
+	changed := false
+	for _, source := range record.Sources {
+		if !strings.HasPrefix(strings.TrimSpace(source.Source), scheduleProxySourcePrefix) {
+			continue
+		}
+		changed = s.banStore.EnableProxySource(proxyName, source.Source) || changed
+	}
+	return changed
 }
 
 func (s *Service) sendProxyControl(proxyName, action string) bool {

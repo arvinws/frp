@@ -84,7 +84,46 @@ func TestDisableAndEnableProxy(t *testing.T) {
 	}
 }
 
-func TestEnableProxyRespectsOtherSources(t *testing.T) {
+func TestManualEnableClearsScheduleSources(t *testing.T) {
+	store := banlist.NewMemoryStore()
+	sessionMgr := clientmgr.NewManager()
+	sessionMgr.Register("run-1", "client-a", "alice", "127.0.0.1", fakeSessionController{})
+	runtime := &fakeRuntimeController{}
+	svc := NewService(store, sessionMgr, runtime, fakeMetadataProvider{
+		items: map[string]ProxyMetadata{
+			"alice.tcp": {ClientID: "client-a"},
+		},
+	})
+
+	if _, err := svc.DisableProxy("alice.tcp", ScheduleProxySource("task-1"), "schedule", "system"); err != nil {
+		t.Fatalf("disable proxy by schedule: %v", err)
+	}
+	if _, err := svc.DisableProxy("alice.tcp", ScheduleProxySource("task-2"), "schedule", "system"); err != nil {
+		t.Fatalf("disable proxy by second schedule: %v", err)
+	}
+
+	resp, err := svc.EnableProxy("alice.tcp", ManualProxySource())
+	if err != nil {
+		t.Fatalf("enable proxy: %v", err)
+	}
+	if resp.Result != "enabled" {
+		t.Fatalf("expected enabled, got %q", resp.Result)
+	}
+	if resp.Disabled {
+		t.Fatalf("proxy should be enabled after clearing schedule sources")
+	}
+	if store.IsProxyDisabled("alice.tcp") {
+		t.Fatalf("proxy should be enabled after manual override")
+	}
+	if len(runtime.controlCalls) != 1 {
+		t.Fatalf("expected one enable control call, got %#v", runtime.controlCalls)
+	}
+	if runtime.controlCalls[0].action != msg.ProxyControlActionEnable {
+		t.Fatalf("expected enable control action, got %#v", runtime.controlCalls)
+	}
+}
+
+func TestManualEnableRespectsOtherSources(t *testing.T) {
 	store := banlist.NewMemoryStore()
 	runtime := &fakeRuntimeController{}
 	svc := NewService(store, clientmgr.NewManager(), runtime, fakeMetadataProvider{})
@@ -94,6 +133,9 @@ func TestEnableProxyRespectsOtherSources(t *testing.T) {
 	}
 	if _, err := svc.DisableProxy("alice.tcp", ScheduleProxySource("task-1"), "schedule", "system"); err != nil {
 		t.Fatalf("disable proxy by schedule: %v", err)
+	}
+	if _, err := svc.DisableProxy("alice.tcp", "policy:lock", "policy", "system"); err != nil {
+		t.Fatalf("disable proxy by policy: %v", err)
 	}
 
 	resp, err := svc.EnableProxy("alice.tcp", ManualProxySource())
