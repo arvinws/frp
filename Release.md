@@ -7,3 +7,7 @@
 * Kept proxy/visitor names as raw config names during completion; moved user-prefix handling to explicit wire-level naming logic.
 * Added `noweb` build tag to allow compiling without frontend assets. `make build` now auto-detects missing `web/*/dist` directories and skips embedding, so a fresh clone can build without running `make web` first. The dashboard gracefully returns 404 when assets are not embedded.
 * Improved config parsing errors: for `.toml` files, syntax errors now return immediately with parser position details (line/column when available) instead of falling through to YAML/JSON parsing, and TOML type mismatches report field-level errors without misleading line numbers.
+
+## Fixes
+
+* Fixed a configuration-dependent authentication bypass in `type = "http"` proxies when `routeByHTTPUser` is used together with `httpUser` / `httpPassword`. This affected proxy-style requests. Proxy-style authentication failures now return `407 Proxy Authentication Required`.
