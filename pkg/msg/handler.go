@@ -29,10 +29,9 @@ func AsyncHandler(f func(Message)) func(Message) {
 type Dispatcher struct {
 	rw io.ReadWriter
 
-	sendCh         chan Message
-	doneCh         chan struct{}
-	msgHandlers    map[reflect.Type]func(Message)
-	defaultHandler func(Message)
+	sendCh      chan Message
+	doneCh      chan struct{}
+	msgHandlers map[reflect.Type]func(Message)
 }
 
 func NewDispatcher(rw io.ReadWriter) *Dispatcher {
@@ -71,8 +70,6 @@ func (d *Dispatcher) readLoop() {
 
 		if handler, ok := d.msgHandlers[reflect.TypeOf(m)]; ok {
 			handler(m)
-		} else if d.defaultHandler != nil {
-			d.defaultHandler(m)
 		}
 	}
 }
@@ -88,10 +85,6 @@ func (d *Dispatcher) Send(m Message) error {
 
 func (d *Dispatcher) RegisterHandler(msg Message, handler func(Message)) {
 	d.msgHandlers[reflect.TypeOf(msg)] = handler
-}
-
-func (d *Dispatcher) RegisterDefaultHandler(handler func(Message)) {
-	d.defaultHandler = handler
 }
 
 func (d *Dispatcher) Done() chan struct{} {

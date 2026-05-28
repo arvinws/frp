@@ -214,7 +214,7 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create vhost tcpMuxer error, %v", err)
 		}
-		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
+		log.Infof("tcpmux httpconnect multiplexer listen on %s, passthrough: %v", address, cfg.TCPMuxPassthrough)
 	}
 
 	// Init all plugins
@@ -668,8 +668,18 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login, inter
 		}
 	}
 
-	// TODO(fatedier): use SessionContext
-	ctl, err := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, authVerifier, svr.auth.EncryptionKey(), ctlConn, !internal, loginMsg, svr.cfg)
+	ctl, err := NewControl(ctx, &SessionContext{
+		RC:             svr.rc,
+		PxyManager:     svr.pxyManager,
+		PluginManager:  svr.pluginManager,
+		AuthVerifier:   authVerifier,
+		EncryptionKey:  svr.auth.EncryptionKey(),
+		Conn:           ctlConn,
+		ConnEncrypted:  !internal,
+		LoginMsg:       loginMsg,
+		ServerCfg:      svr.cfg,
+		ClientRegistry: svr.clientRegistry,
+	})
 	if err != nil {
 		xl.Warnf("create new controller error: %v", err)
 		// don't return detailed errors to client
@@ -721,9 +731,9 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	// server plugin hook
 	content := &plugin.NewWorkConnContent{
 		User: plugin.UserInfo{
-			User:  ctl.loginMsg.User,
-			Metas: ctl.loginMsg.Metas,
-			RunID: ctl.loginMsg.RunID,
+			User:  ctl.sessionCtx.LoginMsg.User,
+			Metas: ctl.sessionCtx.LoginMsg.Metas,
+			RunID: ctl.sessionCtx.LoginMsg.RunID,
 		},
 		NewWorkConn: *newMsg,
 	}
@@ -731,7 +741,7 @@ func (svr *Service) RegisterWorkConn(workConn net.Conn, newMsg *msg.NewWorkConn)
 	if err == nil {
 		newMsg = &retContent.NewWorkConn
 		// Check auth.
-		err = ctl.authVerifier.VerifyNewWorkConn(newMsg)
+		err = ctl.sessionCtx.AuthVerifier.VerifyNewWorkConn(newMsg)
 	}
 	if err != nil {
 		xl.Warnf("invalid NewWorkConn with run id [%s]", newMsg.RunID)
@@ -752,7 +762,7 @@ func (svr *Service) RegisterVisitorConn(visitorConn net.Conn, newMsg *msg.NewVis
 		if !exist {
 			return fmt.Errorf("no client control found for run id [%s]", newMsg.RunID)
 		}
-		visitorUser = ctl.loginMsg.User
+		visitorUser = ctl.sessionCtx.LoginMsg.User
 	}
 	return svr.rc.VisitorManager.NewConn(newMsg.ProxyName, visitorConn, newMsg.Timestamp, newMsg.SignKey,
 		newMsg.UseEncryption, newMsg.UseCompression, visitorUser)
