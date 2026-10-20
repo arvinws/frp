@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from './format'
-import type { ClientInfoData } from '../types/client'
+import type { ClientInfoData, ClientStatus } from '../types/client'
 
 export class Client {
   key: string
@@ -7,14 +7,15 @@ export class Client {
   clientID: string
   runID: string
   version: string
+  wireProtocol: string
   hostname: string
   ip: string
-  metas: Map<string, string>
   firstConnectedAt: Date
   lastConnectedAt: Date
   disconnectedAt?: Date
   online: boolean
   disabled: boolean
+  status: ClientStatus
 
   constructor(data: ClientInfoData) {
     this.key = data.key
@@ -22,14 +23,9 @@ export class Client {
     this.clientID = data.clientID
     this.runID = data.runID
     this.version = data.version || ''
+    this.wireProtocol = data.wireProtocol || ''
     this.hostname = data.hostname
     this.ip = data.clientIP || ''
-    this.metas = new Map<string, string>()
-    if (data.metas) {
-      for (const [key, value] of Object.entries(data.metas)) {
-        this.metas.set(key, value)
-      }
-    }
     this.firstConnectedAt = new Date(data.firstConnectedAt * 1000)
     this.lastConnectedAt = new Date(data.lastConnectedAt * 1000)
     if (data.disconnectedAt && data.disconnectedAt > 0) {
@@ -37,6 +33,11 @@ export class Client {
     }
     this.online = data.online
     this.disabled = data.disabled ?? false
+    this.status = data.status || {
+      phase: this.online ? 'online' : 'offline',
+      curConns: 0,
+      proxyCount: 0,
+    }
   }
 
   get displayName(): string {
@@ -46,8 +47,9 @@ export class Client {
     return this.runID
   }
 
-  get shortRunId(): string {
-    return this.runID.substring(0, 8)
+  get wireProtocolLabel(): string {
+    if (!this.wireProtocol) return ''
+    return `Protocol ${this.wireProtocol}`
   }
 
   get firstConnectedAgo(): string {
@@ -61,28 +63,5 @@ export class Client {
   get disconnectedAgo(): string {
     if (!this.disconnectedAt) return ''
     return formatDistanceToNow(this.disconnectedAt)
-  }
-
-  get statusColor(): string {
-    return this.online ? 'success' : 'danger'
-  }
-
-  get metasArray(): Array<{ key: string; value: string }> {
-    const arr: Array<{ key: string; value: string }> = []
-    this.metas.forEach((value, key) => {
-      arr.push({ key, value })
-    })
-    return arr
-  }
-
-  matchesFilter(searchText: string): boolean {
-    const search = searchText.toLowerCase()
-    return (
-      this.key.toLowerCase().includes(search) ||
-      this.user.toLowerCase().includes(search) ||
-      this.clientID.toLowerCase().includes(search) ||
-      this.runID.toLowerCase().includes(search) ||
-      this.hostname.toLowerCase().includes(search)
-    )
   }
 }

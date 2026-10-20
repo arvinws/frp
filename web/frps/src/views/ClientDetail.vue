@@ -29,6 +29,9 @@
                   <el-tag v-if="client.version" size="small" type="success"
                     >v{{ client.version }}</el-tag
                   >
+                  <el-tag v-if="client.wireProtocolLabel" size="small" type="info">
+                    {{ client.wireProtocolLabel }}
+                  </el-tag>
                 </div>
                 <div class="client-meta">
                   <span v-if="client.ip" class="meta-item">{{
@@ -43,7 +46,13 @@
             <div class="header-right">
               <span
                 class="status-badge"
-                :class="client.disabled ? 'banned' : client.online ? 'online' : 'offline'"
+                :class="
+                  client.disabled
+                    ? 'offline'
+                    : client.online
+                      ? 'online'
+                      : 'offline'
+                "
               >
                 {{
                   client.disabled
@@ -60,11 +69,15 @@
           <div class="info-section">
             <div class="info-item">
               <span class="info-label">{{ t('clients.connections') }}</span>
-              <span class="info-value">{{ totalConnections }}</span>
+              <span class="info-value">{{ client.status.curConns }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">{{ t('clients.runID') }}</span>
               <span class="info-value">{{ client.runID }}</span>
+            </div>
+            <div v-if="client.wireProtocol" class="info-item">
+              <span class="info-label">{{ t('clients.protocol') }}</span>
+              <span class="info-value">{{ client.wireProtocol }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">{{ t('clients.firstConnected') }}</span>
@@ -72,7 +85,9 @@
             </div>
             <div class="info-item">
               <span class="info-label">{{
-                client.online ? t('clients.connected') : t('clients.disconnected')
+                client.online
+                  ? t('clients.connected')
+                  : t('clients.disconnected')
               }}</span>
               <span class="info-value">{{
                 client.online ? client.lastConnectedAgo : client.disconnectedAgo
@@ -80,7 +95,6 @@
             </div>
           </div>
 
-          <!-- Governance Actions -->
           <div v-if="client.clientID" class="governance-section">
             <el-button
               v-if="!client.disabled"
@@ -118,7 +132,6 @@
           </div>
         </div>
 
-        <!-- Governance Action Dialog -->
         <el-dialog
           v-model="dialogVisible"
           :title="dialogTitle"
@@ -190,7 +203,7 @@
           <div class="proxies-header">
             <div class="proxies-title">
               <h2>{{ t('clients.proxies') }}</h2>
-              <span class="proxies-count">{{ filteredProxies.length }}</span>
+              <span class="proxies-count">{{ total }}</span>
             </div>
             <el-input
               v-model="proxySearch"
@@ -205,21 +218,32 @@
               <el-icon class="is-loading"><Loading /></el-icon>
               <span>{{ t('common.loading') }}</span>
             </div>
-            <div v-else-if="filteredProxies.length > 0" class="proxies-list">
+            <div v-else-if="proxies.length > 0" class="proxies-list">
               <ProxyCard
-                v-for="proxy in filteredProxies"
-                :key="proxy.name"
+                v-for="proxy in proxies"
+                :key="`${proxy.type}:${proxy.name}`"
                 :proxy="proxy"
                 show-type
                 @refresh="fetchProxies"
               />
             </div>
-            <div v-else-if="clientProxies.length > 0" class="empty-state">
+            <div v-else-if="proxySearch.trim()" class="empty-state">
               <p>{{ t('clients.noProxiesMatch', { keyword: proxySearch }) }}</p>
             </div>
             <div v-else class="empty-state">
               <p>{{ t('clients.noProxiesFound') }}</p>
             </div>
+          </div>
+          <div v-if="total > 0" class="pagination-section">
+            <ElPagination
+              :current-page="page"
+              :page-size="pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="total"
+              layout="total, sizes, prev, pager, next"
+              @current-change="onPageChange"
+              @size-change="onPageSizeChange"
+            />
           </div>
         </div>
       </template>
@@ -236,26 +260,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElPagination } from 'element-plus'
 import {
   ArrowLeft,
   Loading,
-  Search,
   Lock,
-  Unlock,
+  Search,
   SwitchButton,
+  Unlock,
 } from '@element-plus/icons-vue'
 import { Client } from '../utils/client'
-import { getClient } from '../api/client'
+import { getClientV2 } from '../api/client'
 import {
-  disableClient,
-  enableClient,
-  disconnectSession,
   disableAndDisconnect,
+  disableClient,
+  disconnectSession,
+  enableClient,
 } from '../api/admin'
-import { getProxiesByType } from '../api/proxy'
+import { useI18n } from '../i18n'
+import { getProxiesV2 } from '../api/proxy'
 import {
   BaseProxy,
   TCPProxy,
@@ -268,7 +293,8 @@ import {
 } from '../utils/proxy'
 import { getServerInfo } from '../api/server'
 import ProxyCard from '../components/ProxyCard.vue'
-import { useI18n } from '../i18n'
+import type { ProxyStatsInfo } from '../types/proxy'
+import type { ServerInfo } from '../types/server'
 
 const route = useRoute()
 const router = useRouter()
@@ -285,7 +311,11 @@ const alsoDisconnect = ref(true)
 const alsoBanIP = ref(false)
 
 const dialogTitle = computed(() => {
-  if (dialogAction.value === 'disable' && alsoDisconnect.value && client.value?.online) {
+  if (
+    dialogAction.value === 'disable' &&
+    alsoDisconnect.value &&
+    client.value?.online
+  ) {
     return t('governance.disableAndDisconnect')
   }
   const map: Record<GovernanceAction, string> = {
@@ -322,14 +352,17 @@ const executeAction = async () => {
   const body = {
     reason: actionForm.value.reason || undefined,
     operator: actionForm.value.operator || undefined,
-    banIP: dialogAction.value === 'disable' ? alsoBanIP.value || undefined : undefined,
+    banIP:
+      dialogAction.value === 'disable' ? alsoBanIP.value || undefined : undefined,
   }
 
   try {
     const useDisableAndDisconnect =
-      dialogAction.value === 'disable' && alsoDisconnect.value && client.value.online
+      dialogAction.value === 'disable' &&
+      alsoDisconnect.value &&
+      client.value.online
 
-    let successMsg: string
+    let successMsg = ''
     if (useDisableAndDisconnect) {
       await disableAndDisconnect(client.value.clientID, body)
       successMsg = t('governance.disableAndDisconnectSuccess')
@@ -350,7 +383,7 @@ const executeAction = async () => {
       }
     }
 
-    ElMessage.success(successMsg!)
+    ElMessage.success(successMsg)
     dialogVisible.value = false
 
     const involvedDisconnect =
@@ -369,8 +402,9 @@ const executeAction = async () => {
 const refreshAfterAction = async () => {
   const key = route.params.key as string
   try {
-    const data = await getClient(key)
+    const data = await getClientV2(key)
     client.value = new Client(data)
+    await fetchProxies()
   } catch {
     router.replace('/clients')
   }
@@ -384,123 +418,191 @@ const goBack = () => {
   }
 }
 const proxiesLoading = ref(false)
-const allProxies = ref<BaseProxy[]>([])
+const proxies = ref<BaseProxy[]>([])
 const proxySearch = ref('')
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+let requestSeq = 0
+let searchDebounceTimer: number | null = null
 
-let serverInfo: {
-  vhostHTTPPort: number
-  vhostHTTPSPort: number
-  tcpmuxHTTPConnectPort: number
-  subdomainHost: string
-} | null = null
+let serverInfoPromise: Promise<ServerInfo> | null = null
 
-const clientProxies = computed(() => {
-  if (!client.value) return []
-  return allProxies.value.filter(
-    (p) =>
-      p.clientID === client.value!.clientID && p.user === client.value!.user,
-  )
-})
-
-const filteredProxies = computed(() => {
-  if (!proxySearch.value) return clientProxies.value
-  const search = proxySearch.value.toLowerCase()
-  return clientProxies.value.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search) ||
-      p.type.toLowerCase().includes(search),
-  )
-})
-
-const totalConnections = computed(() => {
-  return clientProxies.value.reduce((sum, p) => sum + p.conns, 0)
-})
-
-const fetchServerInfo = async () => {
-  if (serverInfo) return serverInfo
-  const res = await getServerInfo()
-  serverInfo = res
-  return serverInfo
+const fetchServerInfo = (): Promise<ServerInfo> => {
+  if (!serverInfoPromise) {
+    serverInfoPromise = getServerInfo().catch((err) => {
+      serverInfoPromise = null
+      throw err
+    })
+  }
+  return serverInfoPromise
 }
 
-const fetchClient = async () => {
+const fetchClient = async (): Promise<boolean> => {
   const key = route.params.key as string
   if (!key) {
     loading.value = false
-    return
+    return false
   }
   try {
-    const data = await getClient(key)
+    const data = await getClientV2(key)
     client.value = new Client(data)
+    return true
   } catch (error: any) {
-    if (error.status === 404) {
-      client.value = null
-    } else {
-      ElMessage.error(`${t('clients.fetchClientFailed')}: ${error.message}`)
-    }
+    ElMessage.error(`${t('clients.fetchClientFailed')}: ${error.message}`)
+    return false
   } finally {
     loading.value = false
   }
 }
 
-const fetchProxies = async () => {
-  proxiesLoading.value = true
-  const proxyTypes = ['tcp', 'udp', 'http', 'https', 'tcpmux', 'stcp', 'sudp']
-  const proxies: BaseProxy[] = []
-  try {
+const convertProxy = async (
+  proxy: ProxyStatsInfo,
+): Promise<BaseProxy | null> => {
+  const type = proxy.type || ''
+  if (type === 'tcp') {
+    return new TCPProxy(proxy)
+  }
+  if (type === 'udp') {
+    return new UDPProxy(proxy)
+  }
+  if (type === 'http') {
     const info = await fetchServerInfo()
-    for (const type of proxyTypes) {
-      try {
-        const json = await getProxiesByType(type)
-        if (!json.proxies) continue
-        if (type === 'tcp') {
-          proxies.push(...json.proxies.map((p: any) => new TCPProxy(p)))
-        } else if (type === 'udp') {
-          proxies.push(...json.proxies.map((p: any) => new UDPProxy(p)))
-        } else if (type === 'http' && info?.vhostHTTPPort) {
-          proxies.push(
-            ...json.proxies.map(
-              (p: any) =>
-                new HTTPProxy(p, info.vhostHTTPPort, info.subdomainHost),
-            ),
-          )
-        } else if (type === 'https' && info?.vhostHTTPSPort) {
-          proxies.push(
-            ...json.proxies.map(
-              (p: any) =>
-                new HTTPSProxy(p, info.vhostHTTPSPort, info.subdomainHost),
-            ),
-          )
-        } else if (type === 'tcpmux' && info?.tcpmuxHTTPConnectPort) {
-          proxies.push(
-            ...json.proxies.map(
-              (p: any) =>
-                new TCPMuxProxy(
-                  p,
-                  info.tcpmuxHTTPConnectPort,
-                  info.subdomainHost,
-                ),
-            ),
-          )
-        } else if (type === 'stcp') {
-          proxies.push(...json.proxies.map((p: any) => new STCPProxy(p)))
-        } else if (type === 'sudp') {
-          proxies.push(...json.proxies.map((p: any) => new SUDPProxy(p)))
-        }
-      } catch {
-        // Ignore
-      }
+    if (info && info.config.vhostHTTPPort) {
+      return new HTTPProxy(
+        proxy,
+        info.config.vhostHTTPPort,
+        info.config.subdomainHost,
+      )
     }
-    allProxies.value = proxies
-  } catch {
-    // Ignore
+    return null
+  }
+  if (type === 'https') {
+    const info = await fetchServerInfo()
+    if (info && info.config.vhostHTTPSPort) {
+      return new HTTPSProxy(
+        proxy,
+        info.config.vhostHTTPSPort,
+        info.config.subdomainHost,
+      )
+    }
+    return null
+  }
+  if (type === 'tcpmux') {
+    const info = await fetchServerInfo()
+    if (info && info.config.tcpmuxHTTPConnectPort) {
+      return new TCPMuxProxy(
+        proxy,
+        info.config.tcpmuxHTTPConnectPort,
+        info.config.subdomainHost,
+      )
+    }
+    return null
+  }
+  if (type === 'stcp') {
+    return new STCPProxy(proxy)
+  }
+  if (type === 'sudp') {
+    return new SUDPProxy(proxy)
+  }
+
+  const bp = new BaseProxy(proxy)
+  bp.type = type
+  return bp
+}
+
+const convertProxies = async (items: ProxyStatsInfo[]): Promise<BaseProxy[]> => {
+  const converted = await Promise.all(items.map((item) => convertProxy(item)))
+  return converted.filter((item): item is BaseProxy => item !== null)
+}
+
+const fetchProxies = async () => {
+  if (!client.value) return
+  const seq = ++requestSeq
+  proxiesLoading.value = true
+
+  try {
+    const q = proxySearch.value.trim()
+    const data = await getProxiesV2({
+      page: page.value,
+      pageSize: pageSize.value,
+      q: q || undefined,
+      clientID: client.value.clientID,
+      user: client.value.user,
+    })
+    if (seq !== requestSeq) return
+
+    const maxPage = Math.max(1, Math.ceil(data.total / data.pageSize))
+    if (data.items.length === 0 && data.total > 0 && data.page > maxPage) {
+      page.value = maxPage
+      await fetchProxies()
+      return
+    }
+
+    const converted = await convertProxies(data.items)
+    if (seq !== requestSeq) return
+
+    proxies.value = converted
+    total.value = data.total
+    page.value = data.page
+    pageSize.value = data.pageSize
+  } catch (error: any) {
+    if (seq !== requestSeq) return
+    ElMessage.error('Failed to fetch proxies: ' + error.message)
   } finally {
-    proxiesLoading.value = false
+    if (seq === requestSeq) {
+      proxiesLoading.value = false
+    }
   }
 }
 
-onMounted(() => {
-  fetchClient()
+const clearSearchDebounce = () => {
+  if (searchDebounceTimer !== null) {
+    window.clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
+const invalidateProxyRequests = () => {
+  requestSeq++
+  proxiesLoading.value = false
+}
+
+const resetPageAndFetch = () => {
+  clearSearchDebounce()
+  page.value = 1
+  fetchProxies()
+}
+
+const onPageChange = (value: number) => {
+  clearSearchDebounce()
+  page.value = value
+  fetchProxies()
+}
+
+const onPageSizeChange = (value: number) => {
+  pageSize.value = value
+  resetPageAndFetch()
+}
+
+watch(proxySearch, () => {
+  clearSearchDebounce()
+  invalidateProxyRequests()
+  page.value = 1
+  searchDebounceTimer = window.setTimeout(() => {
+    searchDebounceTimer = null
+    fetchProxies()
+  }, 300)
+})
+
+onUnmounted(() => {
+  clearSearchDebounce()
+})
+
+onMounted(async () => {
+  const ok = await fetchClient()
+  if (!ok || !client.value) return
+
   fetchProxies()
 })
 </script>
@@ -630,19 +732,9 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.status-badge.banned {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-}
-
 html.dark .status-badge.online {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
-}
-
-html.dark .status-badge.banned {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
 }
 
 /* Info Section */
@@ -673,46 +765,6 @@ html.dark .status-badge.banned {
   color: var(--text-primary);
   font-weight: 500;
   word-break: break-all;
-}
-
-/* Governance Section */
-.governance-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px 16px;
-  border-top: 1px solid var(--header-border);
-  flex-wrap: wrap;
-}
-
-.dialog-confirm-text {
-  margin: 0 0 16px;
-  font-size: 14px;
-  color: var(--el-text-color-regular);
-  line-height: 1.6;
-}
-
-.disconnect-switch-item {
-  margin-bottom: 12px;
-}
-
-.disconnect-switch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.disconnect-switch-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
-
-.disconnect-switch-hint {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
 }
 
 /* Proxies Card */
@@ -758,6 +810,12 @@ html.dark .status-badge.banned {
   padding: 16px;
 }
 
+.pagination-section {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 20px;
+}
+
 .proxies-list {
   display: flex;
   flex-direction: column;
@@ -800,6 +858,45 @@ html.dark .status-badge.banned {
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0 0 20px;
+}
+
+.governance-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  flex-wrap: wrap;
+}
+
+.dialog-confirm-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
+  line-height: 1.6;
+}
+
+.disconnect-switch-item {
+  margin-bottom: 12px;
+}
+
+.disconnect-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.disconnect-switch-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.disconnect-switch-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 /* Responsive */

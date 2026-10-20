@@ -45,8 +45,27 @@ func (m *serviceConfigManager) ReloadFromFile(strict bool) error {
 		return fmt.Errorf("%w: %v", configmgmt.ErrInvalidArgument, err)
 	}
 
-	if err := m.svr.UpdateConfigSource(result.Common, result.Proxies, result.Visitors); err != nil {
+	var reloadPlugins func()
+	err = func() error {
+		m.svr.reloadMu.Lock()
+		defer m.svr.reloadMu.Unlock()
+
+		// Snapshot plugins and apply config in the same transaction as control handoff.
+		m.svr.ctlMu.RLock()
+		ctl := m.svr.ctl
+		m.svr.ctlMu.RUnlock()
+		if ctl != nil {
+			reloadPlugins = ctl.pm.PreparePluginReload()
+		}
+		return m.svr.updateConfigSourceLocked(result.Common, result.Proxies, result.Visitors)
+	}()
+	if err != nil {
 		return fmt.Errorf("%w: %v", configmgmt.ErrApplyConfig, err)
+	}
+
+	// Certificate file I/O must not hold the reload transaction lock.
+	if reloadPlugins != nil {
+		reloadPlugins()
 	}
 
 	log.Infof("success reload conf")
@@ -78,6 +97,48 @@ func (m *serviceConfigManager) WriteConfigFile(content []byte) error {
 
 func (m *serviceConfigManager) GetProxyStatus() []*proxy.WorkingStatus {
 	return m.svr.getAllProxyStatus()
+}
+
+func (m *serviceConfigManager) GetProxyConfig(name string) (v1.ProxyConfigurer, bool) {
+	// Try running proxy manager first
+	ws, ok := m.svr.getProxyStatus(name)
+	if ok {
+		return ws.Cfg, true
+	}
+
+	// Fallback to store
+	m.svr.reloadMu.Lock()
+	storeSource := m.svr.storeSource
+	m.svr.reloadMu.Unlock()
+
+	if storeSource != nil {
+		cfg := storeSource.GetProxy(name)
+		if cfg != nil {
+			return cfg, true
+		}
+	}
+	return nil, false
+}
+
+func (m *serviceConfigManager) GetVisitorConfig(name string) (v1.VisitorConfigurer, bool) {
+	// Try running visitor manager first
+	cfg, ok := m.svr.getVisitorCfg(name)
+	if ok {
+		return cfg, true
+	}
+
+	// Fallback to store
+	m.svr.reloadMu.Lock()
+	storeSource := m.svr.storeSource
+	m.svr.reloadMu.Unlock()
+
+	if storeSource != nil {
+		vcfg := storeSource.GetVisitor(name)
+		if vcfg != nil {
+			return vcfg, true
+		}
+	}
+	return nil, false
 }
 
 func (m *serviceConfigManager) IsStoreProxyEnabled(name string) bool {

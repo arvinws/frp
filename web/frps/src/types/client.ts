@@ -4,14 +4,15 @@ export interface ClientInfoData {
   clientID: string
   runID: string
   version?: string
+  wireProtocol?: string
   hostname: string
   clientIP?: string
-  metas?: Record<string, string>
   firstConnectedAt: number
   lastConnectedAt: number
   disconnectedAt?: number
   online: boolean
-  disabled: boolean
+  disabled?: boolean
+  status?: ClientStatus
 }
 
 export interface ActionRequest {
@@ -46,4 +47,20 @@ export interface DisableAndDisconnectResponse {
   updatedAt?: number
   runID?: string
   disconnectResult: string
+}
+
+export interface ClientStatus {
+  phase: 'online' | 'offline'
+  curConns: number
+  proxyCount: number
+}
+
+export interface ClientListV2Params {
+  page?: number
+  pageSize?: number
+  status?: 'all' | 'online' | 'offline'
+  q?: string
+  user?: string
+  clientID?: string
+  runID?: string
 }

@@ -42,10 +42,10 @@
 
 管理员启用该代理
   └─ POST /api/admin/proxies/{name}/enable
-       ├─ banStore.EnableProxy(name)       # 从禁用名单移除
-       ├─ 如果请求包含 clientID：
-       │    └─ sessionManager 断开该客户端连接
-       │         → 客户端自动重连并重新注册所有代理
+       ├─ 清掉 manual 来源，并清掉 schedule:* 来源
+       ├─ 若没有其他禁用来源：
+       │    └─ 向在线客户端发送 ProxyControl enable
+       │         → 客户端取消 runtimeDisabled，并重新注册该代理
        └─ 记录审计日志
 ```
 
@@ -60,10 +60,10 @@
 
 #### POST `/api/admin/proxies/{name}/enable`
 
-从禁用名单移除，并断开关联客户端连接触发重连，使代理自动恢复注册。
+从禁用名单移除 manual 与 schedule 来源。没有其他禁用来源时，向在线客户端发送 `ProxyControl enable`，让该代理重新注册，而不拆掉整条客户端连接。
 
-- 请求体：`{ "clientID": "string" }`（可选，传入后自动断开该客户端触发重连）
-- 响应：`{ "proxyName", "result": "enabled", "disconnectResult": "disconnected" | "already_offline" | "client_not_found" }`
+- 请求体：`{ "clientID": "string", "operator": "string" }`（均可选；`clientID` 只写入审计）
+- 响应：`{ "proxyName", "result" }`（`enabled`、`already_enabled` 或 `still_disabled`）
 
 ### 2.3 前端交互
 
@@ -329,7 +329,7 @@ type ProxyStatsInfo struct {
 
 ### 6.1 技术栈
 
-Vue 3 + TypeScript + Element Plus + Vite，与原 Dashboard 一致。
+Vue 3 + TypeScript + Element Plus + Vite。自上游 `0.71.1` 起，frps Dashboard 使用侧边栏布局和 `/api/v2`。本 fork 在这套新界面上保留中英文切换、计划任务入口，以及客户端/代理治理操作。客户端列表改为服务端分页，不再在当前页本地筛「已禁用」；禁用状态仍显示在卡片和详情页上。
 
 ### 6.2 新增/修改文件
 
@@ -342,7 +342,7 @@ Vue 3 + TypeScript + Element Plus + Vite，与原 Dashboard 一致。
 | `src/i18n/index.ts` | 修改 | `governance` 命名空间中英文翻译 |
 | `src/components/ClientCard.vue` | 修改 | 禁用状态标签 + 指示灯适配 |
 | `src/components/ProxyCard.vue` | 修改 | 代理「禁用」/「启用」按钮 + 已禁用标签 |
-| `src/views/Clients.vue` | 修改 | 「已禁用」筛选 tab |
+| `src/views/Clients.vue` | 修改 | 中英文文案；禁用状态由卡片展示 |
 | `src/views/ClientDetail.vue` | 修改 | 客户端治理按钮 + 对话框 + 自动刷新 |
 | `src/views/Proxies.vue` | 修改 | ProxyCard 禁用后自动刷新 |
 | `src/views/ProxyDetail.vue` | 修改 | 代理详情页显示「已禁用」标签 |
@@ -381,6 +381,7 @@ git push origin --tags
 | `v0.68.0-arvin.8` | 代理列表/详情页显示禁用状态 + 启用代理按钮 |
 | `v0.68.0-arvin.9` | 启用代理时自动断开客户端触发重连，使代理立即恢复 |
 | `v0.68.0-arvin.10` | 禁用代理时终止已建立的活跃连接（context 取消机制） |
+| `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled` |
 
 ---
 
@@ -398,10 +399,10 @@ upstream  → https://github.com/fatedier/frp.git    (上游原仓库)
 ```bash
 git fetch upstream
 # 查看上游 release note，重点关注锚点文件的变化
-git checkout dev
-git rebase upstream/dev
+git checkout -b sync-upstream-dev
+git merge upstream/dev
 # 解决冲突（如有），重点关注下方锚点
-git push origin dev --force-with-lease
+# 用合并提交推到新分支，再向 dev 提 PR。不要 force-push 已发布的 dev。
 ```
 
 ### 9.3 升级时必须检查的锚点
@@ -412,11 +413,12 @@ git push origin dev --force-with-lease
 | `server/control.go` | `handleNewProxy` / `ControlManager` / `worker` 生命周期 |
 | `server/api_router.go` | Dashboard 路由注册方式 |
 | `server/http/controller.go` | `buildClientInfoResp` / `NewController` 签名 |
+| `server/http/controller_v2.go` | v2 列表使用带禁用状态的 client/proxy 响应 |
 | `server/http/model/types.go` | `ClientInfoResp` 结构体字段 |
-| `server/registry/` | `ClientInfo.ClientID()` 回退逻辑、`MarkOfflineByRunID` |
+| `server/registry/` | `ClientInfo.ClientID()` 回退逻辑、`MarkOfflineByRunIDAndControlID` |
 | `server/proxy/proxy.go` | `Proxy` 接口、`Manager`、`BaseProxy.Close` / `handleUserTCPConnection` context 取消机制 |
 | `web/frps/` | 前端路由、API 层、组件结构 |
-| `pkg/msg/msg.go` | `Login` 消息的 `ClientID` / `RunID` 字段 |
+| `pkg/msg/msg.go` | `Login` 的 `ClientID` / `RunID`，以及 `TypeProxyControl`（`'7'`） |
 
 ### 9.4 升级后回归测试清单
 

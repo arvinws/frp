@@ -38,7 +38,7 @@ import (
 // Helper wraps some functions for visitor to use.
 type Helper interface {
 	// ConnectServer directly connects to the frp server.
-	ConnectServer() (net.Conn, error)
+	ConnectServer() (*msg.Conn, error)
 	// TransferConn transfers the connection to another visitor.
 	TransferConn(string, net.Conn) error
 	// MsgTransporter returns the message transporter that is used to send and receive messages
@@ -48,6 +48,17 @@ type Helper interface {
 	VNetController() *vnet.Controller
 	// RunID returns the run id of current controller.
 	RunID() string
+}
+
+type udpPacketCodecProvider interface {
+	UDPPacketCodec() string
+}
+
+func udpPacketCodecFromHelper(helper Helper) string {
+	if provider, ok := helper.(udpPacketCodecProvider); ok {
+		return provider.UDPPacketCodec()
+	}
+	return ""
 }
 
 // Visitor is used for forward traffics from local port tot remote service.
@@ -167,15 +178,15 @@ func (v *BaseVisitor) dialRawVisitorConn(cfg *v1.VisitorBaseConfig) (net.Conn, e
 		UseEncryption:  cfg.Transport.UseEncryption,
 		UseCompression: cfg.Transport.UseCompression,
 	}
-	err = msg.WriteMsg(visitorConn, newVisitorConnMsg)
+	err = visitorConn.WriteMsg(newVisitorConnMsg)
 	if err != nil {
 		visitorConn.Close()
 		return nil, fmt.Errorf("send newVisitorConnMsg to server error: %v", err)
 	}
 
-	var newVisitorConnRespMsg msg.NewVisitorConnResp
 	_ = visitorConn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	err = msg.ReadMsgInto(visitorConn, &newVisitorConnRespMsg)
+	var newVisitorConnRespMsg msg.NewVisitorConnResp
+	err = visitorConn.ReadMsgInto(&newVisitorConnRespMsg)
 	if err != nil {
 		visitorConn.Close()
 		return nil, fmt.Errorf("read newVisitorConnRespMsg error: %v", err)

@@ -2,7 +2,6 @@
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
 [![GitHub release](https://img.shields.io/github/tag/fatedier/frp.svg?label=release)](https://github.com/fatedier/frp/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/fatedier/frp)](https://goreportcard.com/report/github.com/fatedier/frp)
 [![GitHub Releases Stats](https://img.shields.io/github/downloads/fatedier/frp/total.svg?logo=github)](https://somsubhra.github.io/github-release-stats/?username=fatedier&repository=frp)
 
 [README](README.md) | [中文文档](README_zh.md)
@@ -26,16 +25,6 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 </div>
 
 <p align="center">
-  <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
-    <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
-    <br>
-    <b>Requestly - Free & Open-Source alternative to Postman</b>
-    <br>
-    <sub>All-in-one platform to Test, Mock and Intercept APIs.</sub>
-  </a>
-</p>
-
-<p align="center">
   <a href="https://jb.gg/frp" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
@@ -52,6 +41,7 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
+
 <!--gold sponsors end-->
 
 ## 为什么使用 frp ？

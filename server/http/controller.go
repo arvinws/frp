@@ -49,8 +49,12 @@ func NewController(
 	serverCfg *v1.ServerConfig,
 	clientRegistry *registry.ClientRegistry,
 	pxyManager ProxyManager,
-	banStore banlist.Store,
+	banStores ...banlist.Store,
 ) *Controller {
+	var banStore banlist.Store
+	if len(banStores) > 0 {
+		banStore = banStores[0]
+	}
 	return &Controller{
 		serverCfg:      serverCfg,
 		clientRegistry: clientRegistry,
@@ -61,8 +65,12 @@ func NewController(
 
 // /api/serverinfo
 func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
+	return c.buildServerInfoResp(), nil
+}
+
+func (c *Controller) buildServerInfoResp() model.ServerInfoResp {
 	serverStats := mem.StatsCollector.GetServer()
-	svrResp := model.ServerInfoResp{
+	return model.ServerInfoResp{
 		Version:               version.Full(),
 		BindPort:              c.serverCfg.BindPort,
 		VhostHTTPPort:         c.serverCfg.VhostHTTPPort,
@@ -83,8 +91,6 @@ func (c *Controller) APIServerInfo(ctx *httppkg.Context) (any, error) {
 		ClientCounts:    serverStats.ClientCounts,
 		ProxyTypeCounts: serverStats.ProxyTypeCounts,
 	}
-
-	return svrResp, nil
 }
 
 // /api/clients
@@ -348,13 +354,14 @@ func (c *Controller) getProxyStatsByTypeAndName(proxyType string, proxyName stri
 	return
 }
 
-func (c *Controller) buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
+func buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
 	resp := model.ClientInfoResp{
 		Key:              info.Key,
 		User:             info.User,
 		ClientID:         info.ClientID(),
 		RunID:            info.RunID,
 		Version:          info.Version,
+		WireProtocol:     info.WireProtocol,
 		Hostname:         info.Hostname,
 		ClientIP:         info.IP,
 		FirstConnectedAt: toUnix(info.FirstConnectedAt),
@@ -364,6 +371,11 @@ func (c *Controller) buildClientInfoResp(info registry.ClientInfo) model.ClientI
 	if !info.DisconnectedAt.IsZero() {
 		resp.DisconnectedAt = info.DisconnectedAt.Unix()
 	}
+	return resp
+}
+
+func (c *Controller) buildClientInfoResp(info registry.ClientInfo) model.ClientInfoResp {
+	resp := buildClientInfoResp(info)
 	if c.banStore != nil && resp.ClientID != "" {
 		disabled, _ := c.banStore.IsDisabled(resp.ClientID)
 		resp.Disabled = disabled
