@@ -257,31 +257,6 @@ func (f *Framework) AllocPortExcludingRanges(ranges ...[2]int) int {
 	return 0
 }
 
-func (f *Framework) AllocPortExcludingRanges(ranges ...[2]int) int {
-	for range 1000 {
-		port := f.portAllocator.Get()
-		ExpectTrue(port > 0, "alloc port failed")
-
-		inExcludedRange := false
-		for _, portRange := range ranges {
-			if port >= portRange[0] && port <= portRange[1] {
-				inExcludedRange = true
-				break
-			}
-		}
-		if inExcludedRange {
-			f.portAllocator.Release(port)
-			continue
-		}
-
-		f.allocatedPorts = append(f.allocatedPorts, port)
-		return port
-	}
-
-	Failf("alloc port outside excluded ranges failed")
-	return 0
-}
-
 func (f *Framework) RunServer(portName string, s server.Server) {
 	f.servers = append(f.servers, s)
 	if s.BindPort() > 0 && portName != "" {
