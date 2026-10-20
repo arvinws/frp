@@ -29,22 +29,22 @@ type logListResponse struct {
 }
 
 type taskResponse struct {
-	ID                  string         `json:"id"`
-	Name                string         `json:"name"`
-	Enabled             bool           `json:"enabled"`
-	Timezone            string         `json:"timezone"`
-	Targets             []Target       `json:"targets"`
-	StartRule           *Rule          `json:"startRule,omitempty"`
-	StopRule            *Rule          `json:"stopRule,omitempty"`
-	Remark              string         `json:"remark,omitempty"`
-	CreatedAt           int64          `json:"createdAt"`
-	UpdatedAt           int64          `json:"updatedAt"`
-	LastExecutionAt     int64          `json:"lastExecutionAt,omitempty"`
-	LastExecutionAction TaskAction     `json:"lastExecutionAction,omitempty"`
-	LastExecutionResult string         `json:"lastExecutionResult,omitempty"`
-	NextStartAt         int64          `json:"nextStartAt,omitempty"`
-	NextStopAt          int64          `json:"nextStopAt,omitempty"`
-	TargetCount         int            `json:"targetCount"`
+	ID                  string                 `json:"id"`
+	Name                string                 `json:"name"`
+	Enabled             bool                   `json:"enabled"`
+	Timezone            string                 `json:"timezone"`
+	Targets             []Target               `json:"targets"`
+	StartRule           *Rule                  `json:"startRule,omitempty"`
+	StopRule            *Rule                  `json:"stopRule,omitempty"`
+	Remark              string                 `json:"remark,omitempty"`
+	CreatedAt           int64                  `json:"createdAt"`
+	UpdatedAt           int64                  `json:"updatedAt"`
+	LastExecutionAt     int64                  `json:"lastExecutionAt,omitempty"`
+	LastExecutionAction TaskAction             `json:"lastExecutionAction,omitempty"`
+	LastExecutionResult string                 `json:"lastExecutionResult,omitempty"`
+	NextStartAt         int64                  `json:"nextStartAt,omitempty"`
+	NextStopAt          int64                  `json:"nextStopAt,omitempty"`
+	TargetCount         int                    `json:"targetCount"`
 	Logs                []executionLogResponse `json:"logs,omitempty"`
 }
 
@@ -184,7 +184,11 @@ func toHTTPError(err error) error {
 	switch {
 	case strings.Contains(message, "not found"):
 		status = http.StatusNotFound
-	case strings.Contains(message, "required"), strings.Contains(message, "invalid"), strings.Contains(message, "unsupported"), strings.Contains(message, "duplicate"), strings.Contains(message, "configured"):
+	case strings.Contains(message, "required"),
+		strings.Contains(message, "invalid"),
+		strings.Contains(message, "unsupported"),
+		strings.Contains(message, "duplicate"),
+		strings.Contains(message, "configured"):
 		status = http.StatusBadRequest
 	}
 	return httppkg.NewError(status, message)

@@ -24,12 +24,12 @@ type ProxyGovernance interface {
 }
 
 type Service struct {
-	store          Store
+	store           Store
 	proxyGovernance ProxyGovernance
-	scanInterval   time.Duration
-	dueWindow      time.Duration
-	nowFn          func() time.Time
-	runMu          sync.Mutex
+	scanInterval    time.Duration
+	dueWindow       time.Duration
+	nowFn           func() time.Time
+	runMu           sync.Mutex
 }
 
 func NewService(store Store, proxyGovernance ProxyGovernance) *Service {
@@ -452,7 +452,6 @@ func validateTask(task Task) error {
 	return nil
 }
 
-
 func validateRule(rule *Rule) error {
 	if rule == nil {
 		return nil
@@ -506,7 +505,6 @@ func normalizeTargets(targets []Target) []Target {
 	}
 	return out
 }
-
 
 func normalizeRule(rule *Rule) *Rule {
 	if rule == nil {
@@ -603,12 +601,7 @@ func nextRuleTime(rule Rule, after time.Time, loc *time.Location) time.Time {
 }
 
 func containsWeekday(days []int, want int) bool {
-	for _, day := range days {
-		if day == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(days, want)
 }
 
 func weekdayNumber(weekday time.Weekday) int {

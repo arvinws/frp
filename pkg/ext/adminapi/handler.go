@@ -35,9 +35,9 @@ type ProxyGovernance interface {
 }
 
 type Handler struct {
-	banStore       banlist.Store
-	sessionManager *clientmgr.Manager
-	auditRecorder  audit.Recorder
+	banStore        banlist.Store
+	sessionManager  *clientmgr.Manager
+	auditRecorder   audit.Recorder
 	proxyGovernance ProxyGovernance
 }
 
@@ -46,9 +46,9 @@ func NewHandler(banStore banlist.Store, sessionManager *clientmgr.Manager, audit
 		auditRecorder = noopRecorder{}
 	}
 	return &Handler{
-		banStore:       banStore,
-		sessionManager: sessionManager,
-		auditRecorder:  auditRecorder,
+		banStore:        banStore,
+		sessionManager:  sessionManager,
+		auditRecorder:   auditRecorder,
 		proxyGovernance: proxyGovernance,
 	}
 }

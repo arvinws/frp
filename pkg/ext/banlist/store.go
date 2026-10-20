@@ -45,10 +45,10 @@ type ProxyBanSourceRecord struct {
 }
 
 type ProxyBanRecord struct {
-	ProxyName  string                `json:"proxyName"`
-	Status     string                `json:"status"`
-	Sources    []ProxyBanSourceRecord `json:"sources,omitempty"`
-	UpdatedAt  time.Time             `json:"updatedAt,omitempty"`
+	ProxyName string                 `json:"proxyName"`
+	Status    string                 `json:"status"`
+	Sources   []ProxyBanSourceRecord `json:"sources,omitempty"`
+	UpdatedAt time.Time              `json:"updatedAt,omitempty"`
 }
 
 // Store defines banlist operations.
@@ -345,10 +345,8 @@ func (s *MemoryStore) IsProxyDisabled(proxyName string) bool {
 }
 
 func appendUnique(slice []string, val string) []string {
-	for _, v := range slice {
-		if v == val {
-			return slice
-		}
+	if slices.Contains(slice, val) {
+		return slice
 	}
 	return append(slice, val)
 }

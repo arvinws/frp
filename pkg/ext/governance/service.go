@@ -81,11 +81,12 @@ func (s *Service) DisableProxy(proxyName, source, reason, operator string) (Prox
 	}
 
 	result := "disabled"
-	if controlSent && closed {
+	switch {
+	case controlSent && closed:
 		result = "disabled_and_closed"
-	} else if controlSent {
+	case controlSent:
 		result = "disabled_and_controlled"
-	} else if closed {
+	case closed:
 		result = "disabled_and_closed"
 	}
 
@@ -116,7 +117,7 @@ func (s *Service) EnableProxy(proxyName, source string) (ProxyActionResult, erro
 	}
 	disabled := s.banStore.IsProxyDisabled(proxyName)
 	controlSent := false
-	result := "already_enabled"
+	var result string
 	if disabled {
 		result = "still_disabled"
 	} else {

@@ -241,14 +241,15 @@ func (pw *Wrapper) checkWorker() {
 		phase := pw.Phase
 		pw.mu.RUnlock()
 
-		if runtimeDisabled {
+		switch {
+		case runtimeDisabled:
 			if phase != ProxyPhaseDisabled {
 				pw.mu.Lock()
 				pw.Phase = ProxyPhaseDisabled
 				pw.Err = "disabled by server"
 				pw.mu.Unlock()
 			}
-		} else if atomic.LoadUint32(&pw.health) == 0 {
+		case atomic.LoadUint32(&pw.health) == 0:
 			pw.mu.Lock()
 			if pw.Phase == ProxyPhaseNew ||
 				pw.Phase == ProxyPhaseCheckFailed ||
@@ -268,7 +269,7 @@ func (pw *Wrapper) checkWorker() {
 				})
 			}
 			pw.mu.Unlock()
-		} else {
+		default:
 			pw.mu.Lock()
 			if pw.Phase == ProxyPhaseRunning || pw.Phase == ProxyPhaseWaitStart {
 				pw.close()
