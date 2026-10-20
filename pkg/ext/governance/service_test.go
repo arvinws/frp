@@ -115,11 +115,11 @@ func TestManualEnableClearsScheduleSources(t *testing.T) {
 	if store.IsProxyDisabled("alice.tcp") {
 		t.Fatalf("proxy should be enabled after manual override")
 	}
-	if len(runtime.controlCalls) != 1 {
-		t.Fatalf("expected one enable control call, got %#v", runtime.controlCalls)
+	if len(runtime.controlCalls) != 3 {
+		t.Fatalf("expected two disable controls and one enable control, got %#v", runtime.controlCalls)
 	}
-	if runtime.controlCalls[0].action != msg.ProxyControlActionEnable {
-		t.Fatalf("expected enable control action, got %#v", runtime.controlCalls)
+	if runtime.controlCalls[2].action != msg.ProxyControlActionEnable {
+		t.Fatalf("expected final enable control action, got %#v", runtime.controlCalls)
 	}
 }
 

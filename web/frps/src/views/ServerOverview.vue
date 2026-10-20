@@ -4,7 +4,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           :label="t('app.clients')"
-          :value="data.clientCounts"
+          :value="data.status.clientCounts"
           type="clients"
           :subtitle="t('overview.connectedClients')"
           to="/clients"
@@ -13,7 +13,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           :label="t('app.proxies')"
-          :value="data.proxyCounts"
+          :value="proxyCounts"
           type="proxies"
           :subtitle="t('overview.activeProxies')"
           to="/proxies/tcp"
@@ -22,7 +22,7 @@
       <el-col :xs="24" :sm="12" :lg="6">
         <StatCard
           :label="t('proxy.connections')"
-          :value="data.curConns"
+          :value="data.status.curConns"
           type="connections"
           :subtitle="t('overview.currentConnections')"
         />
@@ -54,7 +54,7 @@
               <div class="traffic-info">
                 <div class="label">{{ t('overview.inbound') }}</div>
                 <div class="value">
-                  {{ formatFileSize(data.totalTrafficIn) }}
+                  {{ formatFileSize(data.status.totalTrafficIn) }}
                 </div>
               </div>
             </div>
@@ -66,7 +66,7 @@
               <div class="traffic-info">
                 <div class="label">{{ t('overview.outbound') }}</div>
                 <div class="value">
-                  {{ formatFileSize(data.totalTrafficOut) }}
+                  {{ formatFileSize(data.status.totalTrafficOut) }}
                 </div>
               </div>
             </div>
@@ -83,7 +83,7 @@
           </template>
           <div class="proxy-types-grid">
             <div
-              v-for="(count, type) in data.proxyTypeCounts"
+              v-for="(count, type) in data.status.proxyTypeCount"
               :key="type"
               class="proxy-type-item"
               v-show="count > 0"
@@ -103,78 +103,77 @@
       <template #header>
         <div class="card-header">
           <span class="card-title">{{ t('overview.serverConfiguration') }}</span>
-          <div class="header-actions">
-            <el-tag size="small" type="success">v{{ data.version }}</el-tag>
+          <div class="config-header-actions">
             <el-popconfirm
               :title="t('governance.confirmRestart')"
               :confirm-button-text="t('governance.restartServer')"
               :cancel-button-text="t('proxies.cancel')"
-              confirm-button-type="warning"
-              width="360"
+              confirm-button-type="danger"
+              width="320"
               @confirm="handleRestart"
             >
               <template #reference>
-                <el-button
-                  type="warning"
-                  plain
-                  size="small"
-                  :loading="restarting"
-                >
-                  {{ restarting ? t('governance.restarting') : t('governance.restartServer') }}
+                <el-button size="small" type="danger" plain :loading="restarting">
+                  {{
+                    restarting
+                      ? t('governance.restarting')
+                      : t('governance.restartServer')
+                  }}
                 </el-button>
               </template>
             </el-popconfirm>
+            <el-tag size="small" type="success">v{{ data.version }}</el-tag>
           </div>
         </div>
       </template>
       <div class="config-grid">
         <div class="config-item">
           <span class="config-label">{{ t('overview.bindPort') }}</span>
-          <span class="config-value">{{ data.bindPort }}</span>
+          <span class="config-value">{{ data.config.bindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.kcpBindPort != 0">
+        <div class="config-item" v-if="data.config.kcpBindPort != 0">
           <span class="config-label">{{ t('overview.kcpPort') }}</span>
-          <span class="config-value">{{ data.kcpBindPort }}</span>
+          <span class="config-value">{{ data.config.kcpBindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.quicBindPort != 0">
+        <div class="config-item" v-if="data.config.quicBindPort != 0">
           <span class="config-label">{{ t('overview.quicPort') }}</span>
-          <span class="config-value">{{ data.quicBindPort }}</span>
+          <span class="config-value">{{ data.config.quicBindPort }}</span>
         </div>
-        <div class="config-item" v-if="data.vhostHTTPPort != 0">
+        <div class="config-item" v-if="data.config.vhostHTTPPort != 0">
           <span class="config-label">{{ t('overview.httpPort') }}</span>
-          <span class="config-value">{{ data.vhostHTTPPort }}</span>
+          <span class="config-value">{{ data.config.vhostHTTPPort }}</span>
         </div>
-        <div class="config-item" v-if="data.vhostHTTPSPort != 0">
+        <div class="config-item" v-if="data.config.vhostHTTPSPort != 0">
           <span class="config-label">{{ t('overview.httpsPort') }}</span>
-          <span class="config-value">{{ data.vhostHTTPSPort }}</span>
+          <span class="config-value">{{ data.config.vhostHTTPSPort }}</span>
         </div>
-        <div class="config-item" v-if="data.tcpmuxHTTPConnectPort != 0">
+        <div class="config-item" v-if="data.config.tcpmuxHTTPConnectPort != 0">
           <span class="config-label">{{ t('overview.tcpmuxPort') }}</span>
-          <span class="config-value">{{ data.tcpmuxHTTPConnectPort }}</span>
+          <span class="config-value">{{ data.config.tcpmuxHTTPConnectPort }}</span>
         </div>
-        <div class="config-item" v-if="data.subdomainHost != ''">
+        <div class="config-item" v-if="data.config.subdomainHost != ''">
           <span class="config-label">{{ t('overview.subdomainHost') }}</span>
-          <span class="config-value">{{ data.subdomainHost }}</span>
+          <span class="config-value">{{ data.config.subdomainHost }}</span>
         </div>
         <div class="config-item">
           <span class="config-label">{{ t('overview.maxPoolCount') }}</span>
-          <span class="config-value">{{ data.maxPoolCount }}</span>
+          <span class="config-value">{{ data.config.maxPoolCount }}</span>
         </div>
         <div class="config-item">
           <span class="config-label">{{ t('overview.maxPortsPerClient') }}</span>
-          <span class="config-value">{{ maxPortsPerClientDisplay }}</span>
+          <span class="config-value">{{ maxPortsPerClientLabel }}</span>
         </div>
-        <div class="config-item" v-if="data.allowPortsStr != ''">
+        <div class="config-item" v-if="data.config.allowPortsStr != ''">
           <span class="config-label">{{ t('overview.allowPorts') }}</span>
-          <span class="config-value">{{ data.allowPortsStr }}</span>
+          <span class="config-value">{{ data.config.allowPortsStr }}</span>
         </div>
-        <div class="config-item" v-if="data.tlsForce">
+        <div class="config-item" v-if="data.config.tlsForce">
           <span class="config-label">{{ t('overview.tlsForce') }}</span>
           <el-tag size="small" type="warning">{{ t('common.enabled') }}</el-tag>
         </div>
         <div class="config-item">
           <span class="config-label">{{ t('overview.heartbeatTimeout') }}</span>
-          <span class="config-value">{{ data.heartbeatTimeout }}s</span>
+          <span class="config-value">{{ data.config.heartbeatTimeout }}s</span>
         </div>
       </div>
     </el-card>
@@ -190,76 +189,62 @@ import StatCard from '../components/StatCard.vue'
 import { getServerInfo } from '../api/server'
 import { restartServer } from '../api/admin'
 import { useI18n } from '../i18n'
+import type { ServerInfo } from '../types/server'
 
 const { t } = useI18n()
 const restarting = ref(false)
 
-const data = ref({
+const data = ref<ServerInfo>({
   version: '',
-  bindPort: 0,
-  kcpBindPort: 0,
-  quicBindPort: 0,
-  vhostHTTPPort: 0,
-  vhostHTTPSPort: 0,
-  tcpmuxHTTPConnectPort: 0,
-  subdomainHost: '',
-  maxPoolCount: 0,
-  maxPortsPerClient: 0,
-  allowPortsStr: '',
-  tlsForce: false,
-  heartbeatTimeout: 0,
-  clientCounts: 0,
-  curConns: 0,
-  proxyCounts: 0,
-  totalTrafficIn: 0,
-  totalTrafficOut: 0,
-  proxyTypeCounts: {} as Record<string, number>,
+  config: {
+    bindPort: 0,
+    kcpBindPort: 0,
+    quicBindPort: 0,
+    vhostHTTPPort: 0,
+    vhostHTTPSPort: 0,
+    tcpmuxHTTPConnectPort: 0,
+    subdomainHost: '',
+    maxPoolCount: 0,
+    maxPortsPerClient: 0,
+    allowPortsStr: '',
+    tlsForce: false,
+    heartbeatTimeout: 0,
+  },
+  status: {
+    clientCounts: 0,
+    curConns: 0,
+    totalTrafficIn: 0,
+    totalTrafficOut: 0,
+    proxyTypeCount: {},
+  },
 })
 
 const hasActiveProxies = computed(() => {
-  return Object.values(data.value.proxyTypeCounts).some((c) => c > 0)
+  return Object.values(data.value.status.proxyTypeCount).some((c) => c > 0)
 })
 
-const maxPortsPerClientDisplay = computed(() => {
-  if (data.value.maxPortsPerClient === 0) {
-    return t('common.noLimit')
-  }
-  return String(data.value.maxPortsPerClient)
+const proxyCounts = computed(() => {
+  return Object.values(data.value.status.proxyTypeCount).reduce(
+    (sum, count) => sum + (count || 0),
+    0,
+  )
+})
+
+const maxPortsPerClientLabel = computed(() => {
+  const value = data.value.config.maxPortsPerClient
+  return value === 0 ? t('common.noLimit') : String(value)
 })
 
 const formatTrafficTotal = () => {
-  const total = data.value.totalTrafficIn + data.value.totalTrafficOut
+  const total =
+    data.value.status.totalTrafficIn + data.value.status.totalTrafficOut
   return formatFileSize(total)
 }
 
 const fetchData = async () => {
   try {
     const json = await getServerInfo()
-    data.value.version = json.version
-    data.value.bindPort = json.bindPort
-    data.value.kcpBindPort = json.kcpBindPort
-    data.value.quicBindPort = json.quicBindPort
-    data.value.vhostHTTPPort = json.vhostHTTPPort
-    data.value.vhostHTTPSPort = json.vhostHTTPSPort
-    data.value.tcpmuxHTTPConnectPort = json.tcpmuxHTTPConnectPort
-    data.value.subdomainHost = json.subdomainHost
-    data.value.maxPoolCount = json.maxPoolCount
-    data.value.maxPortsPerClient = json.maxPortsPerClient
-    data.value.allowPortsStr = json.allowPortsStr
-    data.value.tlsForce = json.tlsForce
-    data.value.heartbeatTimeout = json.heartbeatTimeout
-    data.value.clientCounts = json.clientCounts
-    data.value.curConns = json.curConns
-    data.value.totalTrafficIn = json.totalTrafficIn
-    data.value.totalTrafficOut = json.totalTrafficOut
-    data.value.proxyTypeCounts = json.proxyTypeCount || {}
-
-    data.value.proxyCounts = 0
-    if (json.proxyTypeCount != null) {
-      Object.values(json.proxyTypeCount).forEach((count: any) => {
-        data.value.proxyCounts += count || 0
-      })
-    }
+    data.value = json
   } catch {
     ElMessage({
       showClose: true,
@@ -274,7 +259,7 @@ const handleRestart = async () => {
   try {
     await restartServer()
   } catch {
-    // Expected: server shuts down before response arrives
+    // The process exits before the response is written.
   }
 
   const maxWait = 30_000
@@ -351,10 +336,10 @@ html.dark .config-card {
   align-items: center;
 }
 
-.header-actions {
+.config-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .card-title {

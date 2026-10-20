@@ -2,7 +2,6 @@
 
 [![Build Status](https://circleci.com/gh/fatedier/frp.svg?style=shield)](https://circleci.com/gh/fatedier/frp)
 [![GitHub release](https://img.shields.io/github/tag/fatedier/frp.svg?label=release)](https://github.com/fatedier/frp/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/fatedier/frp)](https://goreportcard.com/report/github.com/fatedier/frp)
 [![GitHub Releases Stats](https://img.shields.io/github/downloads/fatedier/frp/total.svg?logo=github)](https://somsubhra.github.io/github-release-stats/?username=fatedier&repository=frp)
 
 [README](README.md) | [中文文档](README_zh.md)
@@ -24,16 +23,6 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 </div>
 
 <p align="center">
-  <a href="https://requestly.com/?utm_source=github&utm_medium=partnered&utm_campaign=frp" target="_blank">
-    <img width="480px" src="https://github.com/user-attachments/assets/24670320-997d-4d62-9bca-955c59fe883d">
-    <br>
-    <b>Requestly - Free & Open-Source alternative to Postman</b>
-    <br>
-    <sub>All-in-one platform to Test, Mock and Intercept APIs.</sub>
-  </a>
-</p>
-
-<p align="center">
   <a href="https://jb.gg/frp" target="_blank">
     <img width="420px" src="https://raw.githubusercontent.com/fatedier/frp/dev/doc/pic/sponsor_jetbrains.jpg">
 	<br>
@@ -50,6 +39,7 @@ an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and 
 	<sub>An open source, self-hosted alternative to public clouds, built for data ownership and privacy</sub>
   </a>
 </p>
+
 <!--gold sponsors end-->
 
 ## What is frp?
@@ -81,6 +71,7 @@ frp also offers a P2P connect mode.
     * [Split Configures Into Different Files](#split-configures-into-different-files)
     * [Server Dashboard](#server-dashboard)
     * [Client Admin UI](#client-admin-ui)
+        * [Dynamic Proxy Management (Store)](#dynamic-proxy-management-store)
     * [Monitor](#monitor)
         * [Prometheus](#prometheus)
     * [Authenticating the Client](#authenticating-the-client)
@@ -149,7 +140,9 @@ We sincerely appreciate your support for frp.
 
 ## Architecture
 
-![architecture](/doc/pic/architecture.png)
+<p align="center">
+  <img src="/doc/pic/architecture.jpg" alt="architecture" width="760">
+</p>
 
 ## Example Usage
 
@@ -593,7 +586,7 @@ Then visit `https://[serverAddr]:7500` to see the dashboard in secure HTTPS conn
 
 ### Client Admin UI
 
-The Client Admin UI helps you check and manage frpc's configuration.
+The Client Admin UI helps you check and manage frpc's configuration and proxies.
 
 Configure an address for admin UI to enable this feature:
 
@@ -606,17 +599,48 @@ webServer.password = "admin"
 
 Then visit `http://127.0.0.1:7400` to see admin UI, with username and password both being `admin`.
 
+#### Dynamic Proxy Management (Store)
+
+You can dynamically create, update, and delete proxies and visitors at runtime through the Web UI or API, without restarting frpc.
+
+To enable this feature, configure `store.path` to specify a file for persisting the configurations:
+
+```toml
+[store]
+path = "./db.json"
+```
+
+Proxies and visitors managed through the Store are saved to disk and automatically restored on frpc restart. They work alongside proxies defined in the configuration file — Store entries take precedence when names conflict.
+
 ### Monitor
 
 When web server is enabled, frps will save monitor data in cache for 7 days. It will be cleared after process restart.
 
-Prometheus is also supported.
+Both frps and frpc support a separate `metricsServer` listener for health checks and optional profiling, without enabling the dashboard or admin API. It is disabled by default (`metricsServer.port = 0`) and binds to `127.0.0.1` unless configured otherwise.
+
+`/healthz` returns an empty HTTP 200 response without authentication. It checks that the HTTP server is responding; it does not indicate whether frpc is connected to frps or whether proxies are ready.
 
 #### Prometheus
 
-Enable dashboard first, then configure `enablePrometheus = true` in `frps.toml`.
+Configure a dedicated listener in `frps.toml`:
 
-`http://{dashboard_addr}/metrics` will provide prometheus monitor data.
+```toml
+metricsServer.addr = "127.0.0.1"
+metricsServer.port = 7501
+metricsServer.user = "monitor"
+metricsServer.password = "change-me"
+# Optional TLS, independent of webServer:
+# metricsServer.tls.certFile = "metrics.crt"
+# metricsServer.tls.keyFile = "metrics.key"
+# Profiling is disabled unless explicitly enabled:
+# metricsServer.pprofEnable = true
+```
+
+Scrape `http://127.0.0.1:7501/metrics` using these Basic Auth credentials. This automatically enables frps business metrics, even when `webServer` is disabled and `enablePrometheus` is unset. Credentials and TLS are independent of `webServer`; when credentials are configured, both `/metrics` and profiling endpoints require authentication. `/healthz` remains anonymous.
+
+Set `metricsServer.pprofEnable = true` to expose `/debug/pprof/` and profiling endpoints on this listener. `/debug/pprof/cmdline` is excluded. frpc supports the same health and profiling settings, but does not provide `/metrics` yet.
+
+The `/healthz`, `/metrics`, and pprof endpoints on `webServer` are deprecated but remain available. `enablePrometheus = true` still enables the legacy frps `/metrics` endpoint on the dashboard listener. Migrate health probes, Prometheus scrapes, and profiling to `metricsServer`; the dashboard and admin APIs continue to use `webServer`.
 
 ### Authenticating the Client
 
@@ -705,6 +729,10 @@ transport.tls.certFile = "certificate.crt"
 transport.tls.keyFile = "certificate.key"
 transport.tls.trustedCaFile = "ca.crt"
 ```
+
+By default, when neither `transport.tls.trustedCaFile` nor `transport.tls.useSystemCa` is set, `frpc` does not verify the server certificate. Set `transport.tls.useSystemCa = true` to verify it using the host's system CAs. If `trustedCaFile` is also set, its CA certificates are added to the system CA pool; setting only `trustedCaFile` trusts only the CAs in that file. CA loading or certificate verification failures cause the connection to fail without falling back to another trust source or skipping verification.
+
+`useSystemCa` is supported only in `frpc`'s `transport.tls`, and requires `transport.tls.enable = true` unless `transport.protocol = "wss"`. With `wss`, the outer TLS connection is always enabled and verification applies to the TLS endpoint, which may be a reverse proxy. Setting `useSystemCa = true` in `frps`'s `transport.tls` or either process's `webServer.tls` or `metricsServer.tls` is a configuration error.
 
 **`frps` TLS settings:**
 
@@ -798,6 +826,15 @@ webServer.port = 7400
 ```
 
 Then run command `frpc reload -c ./frpc.toml` and wait for about 10 seconds to let `frpc` create or update or remove proxies.
+
+For unchanged proxies using `https2http` or `https2https`, `frpc reload` also rereads
+certificate and key files so externally renewed certificates take effect on new
+TLS handshakes without interrupting existing connections. Unchanged file contents
+leave the certificate untouched. If either file cannot be read or the pair is
+invalid, the proxy keeps its previous certificate and reports the error in its
+status and logs; reload still succeeds. A successful retry clears the error.
+Generated self-signed certificates are unchanged, and Store API updates do not
+refresh certificates on unchanged proxies.
 
 **Note that global client parameters won't be modified except 'start'.**
 

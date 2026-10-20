@@ -17,6 +17,16 @@ import (
 
 // RunProcesses starts one frps and zero or more frpc processes from templates.
 func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string) (*process.Process, []*process.Process) {
+	return f.RunProcessesWithBinaries(TestContext.FRPServerPath, TestContext.FRPClientPath, serverTemplate, clientTemplates)
+}
+
+// RunProcessesWithBinaries starts one frps and zero or more frpc processes with explicit binary paths.
+func (f *Framework) RunProcessesWithBinaries(
+	serverBinaryPath string,
+	clientBinaryPath string,
+	serverTemplate string,
+	clientTemplates []string,
+) (*process.Process, []*process.Process) {
 	templates := append([]string{serverTemplate}, clientTemplates...)
 	outs, ports, err := f.RenderTemplates(templates)
 	ExpectNoError(err)
@@ -32,7 +42,7 @@ func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string
 		flog.Debugf("[%s] %s", serverPath, outs[0])
 	}
 
-	serverProcess := process.NewWithEnvs(TestContext.FRPServerPath, []string{"-c", serverPath}, f.osEnvs)
+	serverProcess := process.NewWithEnvs(serverBinaryPath, []string{"-c", serverPath}, f.osEnvs)
 	f.serverConfPaths = append(f.serverConfPaths, serverPath)
 	f.serverProcesses = append(f.serverProcesses, serverProcess)
 	err = serverProcess.Start()
@@ -55,7 +65,7 @@ func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string
 			flog.Debugf("[%s] %s", path, outs[1+i])
 		}
 
-		p := process.NewWithEnvs(TestContext.FRPClientPath, []string{"-c", path}, f.osEnvs)
+		p := process.NewWithEnvs(clientBinaryPath, []string{"-c", path}, f.osEnvs)
 		f.clientConfPaths = append(f.clientConfPaths, path)
 		f.clientProcesses = append(f.clientProcesses, p)
 		clientProcesses = append(clientProcesses, p)
@@ -84,11 +94,9 @@ func (f *Framework) RunProcesses(serverTemplate string, clientTemplates []string
 }
 
 func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
-	p := process.NewWithEnvs(TestContext.FRPServerPath, args, f.osEnvs)
-	f.serverProcesses = append(f.serverProcesses, p)
-	err := p.Start()
+	p, output, err := f.StartFrps(args...)
 	if err != nil {
-		return p, p.Output(), err
+		return p, output, err
 	}
 	select {
 	case <-p.Done():
@@ -97,16 +105,38 @@ func (f *Framework) RunFrps(args ...string) (*process.Process, string, error) {
 	return p, p.Output(), nil
 }
 
+// StartFrps starts frps without an implicit sleep so tests can wait on an
+// explicit readiness event.
+func (f *Framework) StartFrps(args ...string) (*process.Process, string, error) {
+	p := process.NewWithEnvs(TestContext.FRPServerPath, args, f.osEnvs)
+	f.serverProcesses = append(f.serverProcesses, p)
+	err := p.Start()
+	if err != nil {
+		return p, p.Output(), err
+	}
+	return p, p.Output(), nil
+}
+
 func (f *Framework) RunFrpc(args ...string) (*process.Process, string, error) {
+	p, output, err := f.StartFrpc(args...)
+	if err != nil {
+		return p, output, err
+	}
+	select {
+	case <-p.Done():
+	case <-time.After(1500 * time.Millisecond):
+	}
+	return p, p.Output(), nil
+}
+
+// StartFrpc starts frpc without an implicit sleep so tests can wait on an
+// explicit login or proxy-readiness event.
+func (f *Framework) StartFrpc(args ...string) (*process.Process, string, error) {
 	p := process.NewWithEnvs(TestContext.FRPClientPath, args, f.osEnvs)
 	f.clientProcesses = append(f.clientProcesses, p)
 	err := p.Start()
 	if err != nil {
 		return p, p.Output(), err
-	}
-	select {
-	case <-p.Done():
-	case <-time.After(1500 * time.Millisecond):
 	}
 	return p, p.Output(), nil
 }

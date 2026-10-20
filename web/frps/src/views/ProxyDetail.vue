@@ -47,109 +47,75 @@
               <div class="header-title-row">
                 <h1 class="proxy-name">{{ proxy.name }}</h1>
                 <span class="type-tag">{{ proxy.type.toUpperCase() }}</span>
-                <span class="status-badge" :class="proxy.status">
-                  {{ proxyStatusText }}
-                </span>
-                <span v-if="proxy.disabled" class="disabled-badge">
+                <span
+                  v-if="proxy.disabled"
+                  class="status-badge offline"
+                >
                   {{ t('governance.disabled') }}
                 </span>
+                <span v-else class="status-badge" :class="proxy.status">
+                  {{ statusText }}
+                </span>
+                <el-button
+                  v-if="proxy.disabled"
+                  type="success"
+                  plain
+                  size="small"
+                  :loading="actionLoading"
+                  @click="handleEnableProxy"
+                >
+                  {{ t('governance.enableProxy') }}
+                </el-button>
+                <el-button
+                  v-else-if="proxy.status === 'online'"
+                  type="danger"
+                  plain
+                  size="small"
+                  :loading="actionLoading"
+                  @click="handleDisableProxy"
+                >
+                  {{ t('governance.disableProxy') }}
+                </el-button>
               </div>
               <div class="header-meta">
                 <router-link
                   v-if="proxy.clientID"
                   :to="clientLink"
-                  class="client-link"
+                  class="meta-link"
                 >
                   <el-icon><Monitor /></el-icon>
-                  <span
-                    >{{ t('proxy.client') }}:
-                    {{
-                      proxy.user
-                        ? `${proxy.user}.${proxy.clientID}`
-                        : proxy.clientID
-                    }}</span
-                  >
+                  <span>{{
+                    proxy.user
+                      ? `${proxy.user}.${proxy.clientID}`
+                      : proxy.clientID
+                  }}</span>
                 </router-link>
+                <span v-if="proxy.lastStartTime" class="meta-text">
+                  <span class="meta-sep">·</span>
+                  Last Started {{ proxy.lastStartTime }}
+                </span>
+                <span v-if="proxy.lastCloseTime" class="meta-text">
+                  <span class="meta-sep">·</span>
+                  Last Closed {{ proxy.lastCloseTime }}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid">
-          <div v-if="proxy.port" class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">{{ t('proxy.port') }}</span>
-              <div class="stat-icon port">
-                <el-icon><Connection /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">{{ proxy.port }}</div>
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div v-if="proxy.port" class="stats-item">
+            <span class="stats-label">Port</span>
+            <span class="stats-value">{{ proxy.port }}</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">{{ t('proxy.connections') }}</span>
-              <div class="stat-icon connections">
-                <el-icon><DataLine /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">{{ proxy.conns }}</div>
+          <div class="stats-item">
+            <span class="stats-label">Connections</span>
+            <span class="stats-value">{{ proxy.conns }}</span>
           </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">{{ t('proxy.trafficIn') }}</span>
-              <div class="stat-icon traffic-in">
-                <el-icon><Bottom /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">
-              <span class="value-number">{{
-                formatTrafficValue(proxy.trafficIn)
-              }}</span>
-              <span class="value-unit">{{
-                formatTrafficUnit(proxy.trafficIn)
-              }}</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-header">
-              <span class="stat-label">{{ t('proxy.trafficOut') }}</span>
-              <div class="stat-icon traffic-out">
-                <el-icon><Top /></el-icon>
-              </div>
-            </div>
-            <div class="stat-value">
-              <span class="value-number">{{
-                formatTrafficValue(proxy.trafficOut)
-              }}</span>
-              <span class="value-unit">{{
-                formatTrafficUnit(proxy.trafficOut)
-              }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Status Timeline -->
-        <div class="timeline-card">
-          <div class="timeline-header">
-            <el-icon><DataLine /></el-icon>
-            <h2>{{ t('proxy.statusTimeline') }}</h2>
-          </div>
-          <div class="timeline-body">
-            <div class="timeline-grid">
-              <div class="timeline-item">
-                <span class="timeline-label">{{ t('proxy.lastStartTime') }}</span>
-                <span class="timeline-value">{{
-                  proxy.lastStartTime || '-'
-                }}</span>
-              </div>
-              <div class="timeline-item">
-                <span class="timeline-label">{{ t('proxy.lastCloseTime') }}</span>
-                <span class="timeline-value">{{
-                  proxy.lastCloseTime || '-'
-                }}</span>
-              </div>
-            </div>
+          <div class="stats-item">
+            <span class="stats-label">Traffic</span>
+            <span class="stats-value">↓ {{ formatTrafficValue(proxy.trafficIn) }} <small>{{ formatTrafficUnit(proxy.trafficIn) }}</small> / ↑ {{ formatTrafficValue(proxy.trafficOut) }} <small>{{ formatTrafficUnit(proxy.trafficOut) }}</small></span>
           </div>
         </div>
 
@@ -157,7 +123,7 @@
         <div class="config-section">
           <div class="config-section-header">
             <el-icon><Setting /></el-icon>
-            <h2>{{ t('proxy.configuration') }}</h2>
+            <h2>Configuration</h2>
           </div>
 
           <!-- Config Cards Grid -->
@@ -167,9 +133,9 @@
                 <el-icon><Lock /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.encryption') }}</span>
+                <span class="config-item-label">Encryption</span>
                 <span class="config-item-value">{{
-                  proxy.encryption ? t('common.enabled') : t('common.disabled')
+                  proxy.encryption ? 'Enabled' : 'Disabled'
                 }}</span>
               </div>
             </div>
@@ -179,9 +145,9 @@
                 <el-icon><Lightning /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.compression') }}</span>
+                <span class="config-item-label">Compression</span>
                 <span class="config-item-value">{{
-                  proxy.compression ? t('common.enabled') : t('common.disabled')
+                  proxy.compression ? 'Enabled' : 'Disabled'
                 }}</span>
               </div>
             </div>
@@ -191,7 +157,7 @@
                 <el-icon><Link /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.customDomains') }}</span>
+                <span class="config-item-label">Custom Domains</span>
                 <span class="config-item-value">{{ proxy.customDomains }}</span>
               </div>
             </div>
@@ -201,7 +167,7 @@
                 <el-icon><Link /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.subdomain') }}</span>
+                <span class="config-item-label">Subdomain</span>
                 <span class="config-item-value">{{ proxy.subdomain }}</span>
               </div>
             </div>
@@ -211,7 +177,7 @@
                 <el-icon><Location /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.locations') }}</span>
+                <span class="config-item-label">Locations</span>
                 <span class="config-item-value">{{ proxy.locations }}</span>
               </div>
             </div>
@@ -221,7 +187,7 @@
                 <el-icon><Tickets /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.hostRewrite') }}</span>
+                <span class="config-item-label">Host Rewrite</span>
                 <span class="config-item-value">{{
                   proxy.hostHeaderRewrite
                 }}</span>
@@ -233,7 +199,7 @@
                 <el-icon><Cpu /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{ t('proxy.multiplexer') }}</span>
+                <span class="config-item-label">Multiplexer</span>
                 <span class="config-item-value">{{ proxy.multiplexer }}</span>
               </div>
             </div>
@@ -243,9 +209,7 @@
                 <el-icon><Connection /></el-icon>
               </div>
               <div class="config-item-content">
-                <span class="config-item-label">{{
-                  t('proxy.routeByHTTPUser')
-                }}</span>
+                <span class="config-item-label">Route By HTTP User</span>
                 <span class="config-item-value">{{
                   proxy.routeByHTTPUser
                 }}</span>
@@ -270,7 +234,7 @@
         <!-- Traffic Card -->
         <div class="traffic-card">
           <div class="traffic-header">
-            <h2>{{ t('proxy.trafficStatistics') }}</h2>
+            <h2>Traffic Statistics</h2>
           </div>
           <div class="traffic-body">
             <Traffic :proxy-name="proxyName" />
@@ -279,10 +243,10 @@
       </template>
 
       <div v-else-if="!loading" class="not-found">
-        <h2>{{ t('proxy.notFound') }}</h2>
-        <p>{{ t('proxy.notFoundDesc') }}</p>
+        <h2>Proxy not found</h2>
+        <p>The proxy doesn't exist or has been removed.</p>
         <router-link to="/proxies">
-          <el-button type="primary">{{ t('proxy.backToProxies') }}</el-button>
+          <el-button type="primary">Back to Proxies</el-button>
         </router-link>
       </div>
     </div>
@@ -297,9 +261,6 @@ import {
   ArrowLeft,
   Monitor,
   Connection,
-  DataLine,
-  Bottom,
-  Top,
   Link,
   Lock,
   Promotion,
@@ -310,7 +271,9 @@ import {
   Tickets,
   Location,
 } from '@element-plus/icons-vue'
-import { getProxyByName } from '../api/proxy'
+import { getProxyByNameV2 } from '../api/proxy'
+import { disableProxy, enableProxy } from '../api/admin'
+import { useI18n } from '../i18n'
 import { getServerInfo } from '../api/server'
 import {
   BaseProxy,
@@ -323,11 +286,12 @@ import {
   SUDPProxy,
 } from '../utils/proxy'
 import Traffic from '../components/Traffic.vue'
-import { useI18n } from '../i18n'
+import type { ServerInfo } from '../types/server'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const actionLoading = ref(false)
 const proxyName = computed(() => route.params.name as string)
 const fromClient = computed(() => {
   if (route.query.from === 'client' && route.query.client) {
@@ -338,6 +302,47 @@ const fromClient = computed(() => {
 const proxy = ref<BaseProxy | null>(null)
 const loading = ref(true)
 
+const statusText = computed(() => {
+  const raw = proxy.value?.status.toLowerCase() || ''
+  if (raw === 'online') return t('common.online')
+  if (raw === 'offline') return t('common.offline')
+  return proxy.value?.status || ''
+})
+
+const handleDisableProxy = async () => {
+  if (!proxy.value) return
+  actionLoading.value = true
+  try {
+    await disableProxy(proxy.value.name)
+    ElMessage.success(t('governance.disableProxySuccess'))
+    await fetchProxy()
+  } catch (error: any) {
+    ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+const handleEnableProxy = async () => {
+  if (!proxy.value) return
+  actionLoading.value = true
+  try {
+    const response = await enableProxy(proxy.value.name, {
+      clientID: proxy.value.clientID || undefined,
+    })
+    if (response.result === 'still_disabled') {
+      ElMessage.warning(t('governance.enableProxyStillDisabled'))
+    } else {
+      ElMessage.success(t('governance.enableProxySuccess'))
+    }
+    await fetchProxy()
+  } catch (error: any) {
+    ElMessage.error(`${t('governance.operationFailed')}: ${error.message}`)
+  } finally {
+    actionLoading.value = false
+  }
+}
+
 const goBack = () => {
   if (window.history.length > 1) {
     router.back()
@@ -346,12 +351,7 @@ const goBack = () => {
   }
 }
 
-let serverInfo: {
-  vhostHTTPPort: number
-  vhostHTTPSPort: number
-  tcpmuxHTTPConnectPort: number
-  subdomainHost: string
-} | null = null
+let serverInfo: ServerInfo | null = null
 
 const clientLink = computed(() => {
   if (!proxy.value) return ''
@@ -405,17 +405,6 @@ const proxyIconConfig = computed(() => {
   )
 })
 
-const proxyStatusText = computed(() => {
-  const raw = proxy.value?.status?.toLowerCase() || ''
-  if (raw === 'online') {
-    return t('common.online')
-  }
-  if (raw === 'offline') {
-    return t('common.offline')
-  }
-  return proxy.value?.status || ''
-})
-
 const formatTrafficValue = (bytes: number): string => {
   if (bytes === 0) return '0'
   const k = 1024
@@ -447,27 +436,32 @@ const fetchProxy = async () => {
   }
 
   try {
-    const data = await getProxyByName(name)
+    const data = await getProxyByNameV2(name)
     const info = await fetchServerInfo()
-    const type = data.conf?.type || ''
+    const config = info.config
+    const type = data.type || data.conf?.type || ''
 
     if (type === 'tcp') {
       proxy.value = new TCPProxy(data)
     } else if (type === 'udp') {
       proxy.value = new UDPProxy(data)
-    } else if (type === 'http' && info?.vhostHTTPPort) {
-      proxy.value = new HTTPProxy(data, info.vhostHTTPPort, info.subdomainHost)
-    } else if (type === 'https' && info?.vhostHTTPSPort) {
+    } else if (type === 'http' && config.vhostHTTPPort) {
+      proxy.value = new HTTPProxy(
+        data,
+        config.vhostHTTPPort,
+        config.subdomainHost,
+      )
+    } else if (type === 'https' && config.vhostHTTPSPort) {
       proxy.value = new HTTPSProxy(
         data,
-        info.vhostHTTPSPort,
-        info.subdomainHost,
+        config.vhostHTTPSPort,
+        config.subdomainHost,
       )
-    } else if (type === 'tcpmux' && info?.tcpmuxHTTPConnectPort) {
+    } else if (type === 'tcpmux' && config.tcpmuxHTTPConnectPort) {
       proxy.value = new TCPMuxProxy(
         data,
-        info.tcpmuxHTTPConnectPort,
-        info.subdomainHost,
+        config.tcpmuxHTTPConnectPort,
+        config.subdomainHost,
       )
     } else if (type === 'stcp') {
       proxy.value = new STCPProxy(data)
@@ -478,7 +472,7 @@ const fetchProxy = async () => {
       proxy.value.type = type
     }
   } catch (error: any) {
-    ElMessage.error(`${t('proxy.fetchFailed')}: ${error.message}`)
+    ElMessage.error('Failed to fetch proxy: ' + error.message)
   } finally {
     loading.value = false
   }
@@ -607,20 +601,6 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.disabled-badge {
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-html.dark .disabled-badge {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-}
-
 html.dark .status-badge.online {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
@@ -629,176 +609,71 @@ html.dark .status-badge.online {
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-.client-link {
+.meta-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 4px;
   color: var(--text-secondary);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.client-link:hover {
+.meta-link:hover {
   color: var(--el-color-primary);
 }
 
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+.meta-text {
+  color: var(--text-muted);
 }
 
-.stat-card {
+.meta-sep {
+  margin: 0 4px;
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: flex;
   background: var(--el-bg-color);
   border: 1px solid var(--header-border);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.stat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.stat-icon {
-  width: 36px;
-  height: 36px;
   border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
+  margin-bottom: 20px;
 }
 
-.stat-icon.port {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.stat-icon.connections {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
-}
-
-.stat-icon.traffic-in {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.stat-icon.traffic-out {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-html.dark .stat-icon.port {
-  background: rgba(139, 92, 246, 0.15);
-}
-
-html.dark .stat-icon.connections {
-  background: rgba(168, 85, 247, 0.15);
-}
-
-html.dark .stat-icon.traffic-in {
-  background: rgba(59, 130, 246, 0.15);
-}
-
-html.dark .stat-icon.traffic-out {
-  background: rgba(34, 197, 94, 0.15);
-}
-
-.stat-value {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.value-number {
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.stat-value:not(:has(.value-number)) {
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.value-unit {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-/* Timeline Card */
-.timeline-card {
-  background: var(--el-bg-color);
-  border: 1px solid var(--header-border);
-  border-radius: 12px;
-  margin-bottom: 16px;
-}
-
-.timeline-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  color: var(--text-secondary);
-}
-
-.timeline-header h2 {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.timeline-body {
-  padding: 20px;
-  padding-top: 0;
-}
-
-.timeline-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  background: var(--el-fill-color-light);
-  border-radius: 10px;
-  padding: 20px 24px;
-}
-
-.timeline-item {
+.stats-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  padding: 16px 20px;
 }
 
-.timeline-label {
-  font-size: 13px;
+.stats-item + .stats-item {
+  border-left: 1px solid var(--header-border);
+}
+
+.stats-label {
+  font-size: 12px;
   color: var(--text-secondary);
-  font-weight: 500;
 }
 
-.timeline-value {
-  font-size: 15px;
-  font-weight: 500;
+.stats-value {
+  font-size: 18px;
+  font-weight: 600;
   color: var(--text-primary);
 }
+
+.stats-value small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 
 /* Card Base */
 .traffic-card {
@@ -992,15 +867,21 @@ html.dark .config-item-icon.route {
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 768px) {
   .config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stats-bar {
+    flex-wrap: wrap;
+  }
+
+  .stats-item {
+    flex: 1 1 40%;
+  }
+
+  .stats-item:nth-child(n+3) {
+    border-top: 1px solid var(--header-border);
   }
 }
 
@@ -1010,12 +891,5 @@ html.dark .config-item-icon.route {
     gap: 16px;
   }
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .timeline-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

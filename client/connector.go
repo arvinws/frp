@@ -24,11 +24,13 @@ import (
 	"time"
 
 	libnet "github.com/fatedier/golib/net"
-	fmux "github.com/hashicorp/yamux"
+	fmux "github.com/fatedier/yamux"
 	quic "github.com/quic-go/quic-go"
 	"github.com/samber/lo"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
+	"github.com/fatedier/frp/pkg/msg"
+	"github.com/fatedier/frp/pkg/proto/wire"
 	"github.com/fatedier/frp/pkg/transport"
 	netpkg "github.com/fatedier/frp/pkg/util/net"
 	"github.com/fatedier/frp/pkg/util/xlog"
@@ -39,6 +41,39 @@ type Connector interface {
 	Open() error
 	Connect() (net.Conn, error)
 	Close() error
+}
+
+type MessageConnector interface {
+	Connect() (*msg.Conn, error)
+	Close() error
+}
+
+type messageConnector struct {
+	connector    Connector
+	wireProtocol string
+}
+
+func newMessageConnector(connector Connector, wireProtocol string) *messageConnector {
+	return &messageConnector{
+		connector:    connector,
+		wireProtocol: wireProtocol,
+	}
+}
+
+func (c *messageConnector) Connect() (*msg.Conn, error) {
+	conn, err := c.connector.Connect()
+	if err != nil {
+		return nil, err
+	}
+	if err = wire.WriteMagicIfV2(conn, c.wireProtocol); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return msg.NewConn(conn, msg.NewReadWriter(conn, c.wireProtocol)), nil
+}
+
+func (c *messageConnector) Close() error {
+	return c.connector.Close()
 }
 
 // defaultConnectorImpl is the default implementation of Connector for normal frpc.
@@ -74,11 +109,12 @@ func (c *defaultConnectorImpl) Open() error {
 			sn = c.cfg.ServerAddr
 		}
 		if lo.FromPtr(c.cfg.Transport.TLS.Enable) {
-			tlsConfig, err = transport.NewClientTLSConfig(
+			tlsConfig, err = transport.NewClientTLSConfigWithSystemCA(
 				c.cfg.Transport.TLS.CertFile,
 				c.cfg.Transport.TLS.KeyFile,
 				c.cfg.Transport.TLS.TrustedCaFile,
-				sn)
+				sn,
+				c.cfg.Transport.TLS.UseSystemCa)
 		} else {
 			tlsConfig, err = transport.NewClientTLSConfig("", "", "", sn)
 		}
@@ -159,11 +195,12 @@ func (c *defaultConnectorImpl) realConnect() (net.Conn, error) {
 			sn = c.cfg.ServerAddr
 		}
 
-		tlsConfig, err = transport.NewClientTLSConfig(
+		tlsConfig, err = transport.NewClientTLSConfigWithSystemCA(
 			c.cfg.Transport.TLS.CertFile,
 			c.cfg.Transport.TLS.KeyFile,
 			c.cfg.Transport.TLS.TrustedCaFile,
-			sn)
+			sn,
+			c.cfg.Transport.TLS.UseSystemCa)
 		if err != nil {
 			xl.Warnf("fail to build tls configuration, err: %v", err)
 			return nil, err

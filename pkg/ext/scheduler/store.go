@@ -116,8 +116,7 @@ func (s *FileStore) ListLogs(taskID string, limit int) []ExecutionLog {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	result := make([]ExecutionLog, 0)
-	for i := len(s.logs) - 1; i >= 0; i-- {
-		log := s.logs[i]
+	for _, log := range slices.Backward(s.logs) {
 		if taskID != "" && log.TaskID != taskID {
 			continue
 		}

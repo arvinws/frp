@@ -232,10 +232,6 @@ func (f *Framework) AllocPort() int {
 	return port
 }
 
-func (f *Framework) ReleasePort(port int) {
-	f.portAllocator.Release(port)
-}
-
 func (f *Framework) AllocPortExcludingRanges(ranges ...[2]int) int {
 	for range 1000 {
 		port := f.portAllocator.Get()

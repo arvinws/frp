@@ -94,11 +94,11 @@ type TaskView struct {
 }
 
 type RunResult struct {
-	TaskID      string       `json:"taskID"`
-	TaskName    string       `json:"taskName"`
-	Action      TaskAction   `json:"action"`
-	ScheduledAt time.Time    `json:"scheduledAt"`
-	ExecutedAt  time.Time    `json:"executedAt"`
-	Result      string       `json:"result"`
+	TaskID      string         `json:"taskID"`
+	TaskName    string         `json:"taskName"`
+	Action      TaskAction     `json:"action"`
+	ScheduledAt time.Time      `json:"scheduledAt"`
+	ExecutedAt  time.Time      `json:"executedAt"`
+	Result      string         `json:"result"`
 	Logs        []ExecutionLog `json:"logs"`
 }
