@@ -381,7 +381,8 @@ git push origin --tags
 | `v0.68.0-arvin.8` | 代理列表/详情页显示禁用状态 + 启用代理按钮 |
 | `v0.68.0-arvin.9` | 启用代理时自动断开客户端触发重连，使代理立即恢复 |
 | `v0.68.0-arvin.10` | 禁用代理时终止已建立的活跃连接（context 取消机制） |
-| `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled` |
+| `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled`。该合并的上游尖端是 `b0bf3257`，已包含 v0.71.1 之后到 metricsServer / useSystemCa / 插件证书重载的提交 |
+| `dev`（同步至上游 `93b52799`，2026-10-23） | 在 `b0bf3257` 之上再合并 4 个提交：frpc `metricsServer` 提供 Go runtime `/metrics`、记录 `webServer` 可观测端点弃用、UDPProxy 代际 channel 修复、xlog 前缀并发安全。与 fork 定制无文件重叠，无冲突 |
 
 ---
 
