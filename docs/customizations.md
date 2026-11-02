@@ -383,6 +383,7 @@ git push origin --tags
 | `v0.68.0-arvin.10` | 禁用代理时终止已建立的活跃连接（context 取消机制） |
 | `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled`。该合并的上游尖端是 `b0bf3257`，已包含 v0.71.1 之后到 metricsServer / useSystemCa / 插件证书重载的提交 |
 | `dev`（同步至上游 `93b52799`，2026-10-23） | 在 `b0bf3257` 之上再合并 4 个提交：frpc `metricsServer` 提供 Go runtime `/metrics`、记录 `webServer` 可观测端点弃用、UDPProxy 代际 channel 修复、xlog 前缀并发安全。与 fork 定制无文件重叠，无冲突 |
+| `dev`（同步至上游 `e6e0aaf9`，2026-11-02） | 在 `93b52799` 之上合并 1 个提交：vhost 路由监听关闭时关闭尚未交接的挂起连接（#5592）。与 fork 定制无文件重叠，无冲突 |
 
 ---
 
