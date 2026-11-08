@@ -564,7 +564,7 @@ func (svr *Service) APIRestart(ctx *httppkg.Context) (any, error) {
 	return httppkg.GeneralResponse{Code: 200, Msg: "restarting"}, nil
 }
 
-func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool) {
+func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, session io.Closer) {
 	xl := xlog.FromContextSafe(ctx)
 
 	acceptedConn, err := svr.acceptConnection(ctx, conn)
@@ -595,7 +595,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				}
 			}
 			if err == nil {
-				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec)
+				ctl, err = svr.RegisterControl(controlConn, m, internal, acceptedConn.wireProtocol, acceptedConn.udpPacketCodec, session)
 			}
 		}
 
@@ -858,10 +858,10 @@ func (svr *Service) HandleListener(l net.Listener, internal bool) {
 						session.Close()
 						return
 					}
-					go svr.handleConnection(ctx, stream, internal)
+					go svr.handleConnection(ctx, stream, internal, session)
 				}
 			} else {
-				svr.handleConnection(ctx, frpConn, internal)
+				svr.handleConnection(ctx, frpConn, internal, nil)
 			}
 		}(ctx, c)
 	}
@@ -884,7 +884,7 @@ func (svr *Service) HandleQUICListener(l *quic.Listener) {
 					_ = frpConn.CloseWithError(0, "")
 					return
 				}
-				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false)
+				go svr.handleConnection(ctx, netpkg.QuicStreamToNetConn(stream, frpConn), false, nil)
 			}
 		}(context.Background(), c)
 	}
@@ -896,6 +896,7 @@ func (svr *Service) RegisterControl(
 	internal bool,
 	wireProtocol string,
 	udpPacketCodec string,
+	session io.Closer,
 ) (*Control, error) {
 	switch wireProtocol {
 	case wire.ProtocolV1:
@@ -970,6 +971,7 @@ func (svr *Service) RegisterControl(
 		AuthVerifier:   authVerifier,
 		EncryptionKey:  svr.auth.EncryptionKey(),
 		Conn:           ctlConn,
+		Session:        session,
 		LoginMsg:       loginMsg,
 		ServerCfg:      svr.cfg,
 		WireProtocol:   wireProtocol,
