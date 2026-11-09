@@ -97,8 +97,12 @@ type Service struct {
 	// Accept connections using kcp
 	kcpListener net.Listener
 
-	// Accept connections using quic
-	quicListener *quic.Listener
+	// Accept connections using quic.
+	// quicPacketConn is owned here: quic-go v0.65 closes a ListenAddr socket
+	// only after its read loop unwinds, so Close would otherwise return while
+	// the UDP port is still bound.
+	quicListener   *quic.Listener
+	quicPacketConn net.PacketConn
 
 	// Accept connections using websocket
 	websocketListener net.Listener
@@ -271,16 +275,26 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 
 	if cfg.QUICBindPort > 0 {
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.QUICBindPort))
+		udpAddr, err := net.ResolveUDPAddr("udp", address)
+		if err != nil {
+			return nil, fmt.Errorf("listen on quic udp address %s error: %v", address, err)
+		}
+		udpConn, err := net.ListenUDP("udp", udpAddr)
+		if err != nil {
+			return nil, fmt.Errorf("listen on quic udp address %s error: %v", address, err)
+		}
 		quicTLSCfg := tlsConfig.Clone()
 		quicTLSCfg.NextProtos = []string{"frp"}
-		svr.quicListener, err = quic.ListenAddr(address, quicTLSCfg, &quic.Config{
+		svr.quicListener, err = quic.Listen(udpConn, quicTLSCfg, &quic.Config{
 			MaxIdleTimeout:     time.Duration(cfg.Transport.QUIC.MaxIdleTimeout) * time.Second,
 			MaxIncomingStreams: int64(cfg.Transport.QUIC.MaxIncomingStreams),
 			KeepAlivePeriod:    time.Duration(cfg.Transport.QUIC.KeepalivePeriod) * time.Second,
 		})
 		if err != nil {
+			_ = udpConn.Close()
 			return nil, fmt.Errorf("listen on quic udp address %s error: %v", address, err)
 		}
+		svr.quicPacketConn = udpConn
 		log.Infof("frps quic listen on %s", address)
 	}
 
@@ -523,6 +537,9 @@ func (svr *Service) closeResources() {
 	}
 	if svr.quicListener != nil {
 		svr.quicListener.Close()
+	}
+	if svr.quicPacketConn != nil {
+		svr.quicPacketConn.Close()
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()

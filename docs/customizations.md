@@ -384,7 +384,7 @@ git push origin --tags
 | `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled`。该合并的上游尖端是 `b0bf3257`，已包含 v0.71.1 之后到 metricsServer / useSystemCa / 插件证书重载的提交 |
 | `dev`（同步至上游 `93b52799`，2026-10-23） | 在 `b0bf3257` 之上再合并 4 个提交：frpc `metricsServer` 提供 Go runtime `/metrics`、记录 `webServer` 可观测端点弃用、UDPProxy 代际 channel 修复、xlog 前缀并发安全。与 fork 定制无文件重叠，无冲突 |
 | `dev`（同步至上游 `e6e0aaf9`，2026-11-02） | 在 `93b52799` 之上合并 1 个提交：vhost 路由监听关闭时关闭尚未交接的挂起连接（#5592）。与 fork 定制无文件重叠，无冲突 |
-| `dev`（同步至上游正式版 `v0.72.0` / `bafec21a`，2026-11-05） | 在 `e6e0aaf9` 之上合并正式 tag，不包含其后 upstream/dev 文档提交 `d42812ae`（赞助商 README）。本次新增：yamux v0.3.0、控制连接被替换或异常退出时立即关闭 mux session（#5596）、依赖升级（kcp-go v5.6.73、quic-go v0.65.0、prometheus/client_golang v1.25.0、wireguard-go、k8s.io v0.37.2）、注解校验内联、版本号 `0.72.0`。`server/control.go` 自动合并；`server/service.go` 保留 `APIRestart`，并把上游 `session` 参数接到 `handleConnection` / `RegisterControl`。`metricsServer` 与旧指标端点弃用已在更早的同步中进入 fork，本版 Release 说明将其记为 v0.72.0 的正式行为 |
+| `dev`（同步至上游正式版 `v0.72.0` / `bafec21a`，2026-11-05） | 在 `e6e0aaf9` 之上合并正式 tag，不包含其后 upstream/dev 文档提交 `d42812ae`（赞助商 README）。本次新增：yamux v0.3.0、控制连接被替换或异常退出时立即关闭 mux session（#5596）、依赖升级（kcp-go v5.6.73、quic-go v0.65.0、prometheus/client_golang v1.25.0、wireguard-go、k8s.io v0.37.2）、注解校验内联、版本号 `0.72.0`。`server/control.go` 自动合并；`server/service.go` 保留 `APIRestart`，并把上游 `session` 参数接到 `handleConnection` / `RegisterControl`。quic-go v0.65 的 `ListenAddr` 在 `Close` 返回后仍占用 UDP 端口，frps 改为自行 `ListenUDP` 并在关闭时释放。`metricsServer` 与旧指标端点弃用已在更早的同步中进入 fork，本版 Release 说明将其记为 v0.72.0 的正式行为 |
 
 ---
 
