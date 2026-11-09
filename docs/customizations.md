@@ -385,6 +385,7 @@ git push origin --tags
 | `dev`（同步至上游 `93b52799`，2026-10-23） | 在 `b0bf3257` 之上再合并 4 个提交：frpc `metricsServer` 提供 Go runtime `/metrics`、记录 `webServer` 可观测端点弃用、UDPProxy 代际 channel 修复、xlog 前缀并发安全。与 fork 定制无文件重叠，无冲突 |
 | `dev`（同步至上游 `e6e0aaf9`，2026-11-02） | 在 `93b52799` 之上合并 1 个提交：vhost 路由监听关闭时关闭尚未交接的挂起连接（#5592）。与 fork 定制无文件重叠，无冲突 |
 | `dev`（同步至上游 `d42812ae`，2026-11-05） | 在 `e6e0aaf9` 之上合并 11 个提交，至 #5606：yamux v0.3.0（#5595）、control 被替换或退出时关闭 mux session（#5596）、v0.72.0 准备（#5597）、依赖升级（#5598–#5604）、注解名校验内联（#5601）、金牌赞助商文档（#5606）。`server/service.go` 一处冲突：保留 `APIRestart`，并接上上游 `session io.Closer`。治理钩子与 `server/control.go` 的禁用检查、`ClientBanStore` / `SessionManager` 仍在 |
+| `v0.72.0` 同步分支合入当前 `dev`（`b5b31f48`） | 正式 tag `v0.72.0`（`bafec21a`）与已在 dev 上的 `d42812ae`、PR #6 安全加固合在一起。Go 保持 `1.26.10`。QUIC 只保留一套自行 `ListenUDP` 并在关闭时释放端口的实现。`APIRestart` 使用 re-exec；治理、计划任务和 i18n 仍在 |
 
 ---
 
