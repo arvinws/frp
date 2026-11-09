@@ -384,7 +384,8 @@ git push origin --tags
 | `dev`（同步至上游 `0.71.1`） | 合并 `upstream/dev`；治理/i18n/计划任务接到新侧边栏 Dashboard；v2 API 带上 `disabled`。该合并的上游尖端是 `b0bf3257`，已包含 v0.71.1 之后到 metricsServer / useSystemCa / 插件证书重载的提交 |
 | `dev`（同步至上游 `93b52799`，2026-10-23） | 在 `b0bf3257` 之上再合并 4 个提交：frpc `metricsServer` 提供 Go runtime `/metrics`、记录 `webServer` 可观测端点弃用、UDPProxy 代际 channel 修复、xlog 前缀并发安全。与 fork 定制无文件重叠，无冲突 |
 | `dev`（同步至上游 `e6e0aaf9`，2026-11-02） | 在 `93b52799` 之上合并 1 个提交：vhost 路由监听关闭时关闭尚未交接的挂起连接（#5592）。与 fork 定制无文件重叠，无冲突 |
-| `dev`（同步至上游正式版 `v0.72.0` / `bafec21a`，2026-11-05） | 在 `e6e0aaf9` 之上合并正式 tag，不包含其后 upstream/dev 文档提交 `d42812ae`（赞助商 README）。本次新增：yamux v0.3.0、控制连接被替换或异常退出时立即关闭 mux session（#5596）、依赖升级（kcp-go v5.6.73、quic-go v0.65.0、prometheus/client_golang v1.25.0、wireguard-go、k8s.io v0.37.2）、注解校验内联、版本号 `0.72.0`。`server/control.go` 自动合并；`server/service.go` 保留 `APIRestart`，并把上游 `session` 参数接到 `handleConnection` / `RegisterControl`。quic-go v0.65 的 `ListenAddr` 在 `Close` 返回后仍占用 UDP 端口，frps 改为自行 `ListenUDP` 并在关闭时释放。`metricsServer` 与旧指标端点弃用已在更早的同步中进入 fork，本版 Release 说明将其记为 v0.72.0 的正式行为 |
+| `dev`（同步至上游 `d42812ae`，2026-11-05） | 在 `e6e0aaf9` 之上合并 11 个提交，至 #5606：yamux v0.3.0（#5595）、control 被替换或退出时关闭 mux session（#5596）、v0.72.0 准备（#5597）、依赖升级（#5598–#5604）、注解名校验内联（#5601）、金牌赞助商文档（#5606）。`server/service.go` 一处冲突：保留 `APIRestart`，并接上上游 `session io.Closer`。治理钩子与 `server/control.go` 的禁用检查、`ClientBanStore` / `SessionManager` 仍在 |
+| `v0.72.0` 同步分支合入当前 `dev`（`b5b31f48`） | 正式 tag `v0.72.0`（`bafec21a`）与已在 dev 上的 `d42812ae`、PR #6 安全加固合在一起。Go 保持 `1.26.10`。QUIC 只保留一套自行 `ListenUDP` 并在关闭时释放端口的实现。`APIRestart` 使用 re-exec；治理、计划任务和 i18n 仍在 |
 
 ---
 

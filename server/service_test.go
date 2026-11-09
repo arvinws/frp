@@ -37,6 +37,7 @@ import (
 	"github.com/fatedier/frp/pkg/msg"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"github.com/fatedier/frp/pkg/proto/wire"
+	httppkg "github.com/fatedier/frp/pkg/util/http"
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/server/controller"
 	"github.com/fatedier/frp/server/proxy"
@@ -860,6 +861,30 @@ func TestServiceVisitorRoutingLegacyFallsBackToJSONPacketCodec(t *testing.T) {
 	require.Empty(t, metadata.UDPPacketCodec())
 	require.NoError(t, accepted.Close())
 	require.Equal(t, int64(1), visitorConn.closeCount.Load())
+}
+
+func TestAPIRestartDoesNotExitDirectly(t *testing.T) {
+	originalDelay := adminRestartDelay
+	originalAction := adminRestartAction
+	t.Cleanup(func() {
+		adminRestartDelay = originalDelay
+		adminRestartAction = originalAction
+	})
+	adminRestartDelay = 20 * time.Millisecond
+	called := make(chan struct{})
+	adminRestartAction = func(*Service) {
+		close(called)
+	}
+
+	svr := &Service{}
+	resp, err := svr.APIRestart(nil)
+	require.NoError(t, err)
+	require.Equal(t, "restarting", resp.(httppkg.GeneralResponse).Msg)
+	select {
+	case <-called:
+	case <-time.After(time.Second):
+		t.Fatal("restart action was not invoked")
+	}
 }
 
 func newControlTestService(t *testing.T) *Service {

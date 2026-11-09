@@ -154,7 +154,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		// Use same port as PortServer
 		serverConf += fmt.Sprintf(`
 		vhost_http_port = {{ .%s }}
-		dashboard_addr = 0.0.0.0
+		dashboard_addr = 127.0.0.1
 		dashboard_port = %d
 		dashboard_user = admin
 		dashboard_pwd = admin

@@ -33,6 +33,9 @@ func validateWebServerConfig(c *v1.WebServerConfig) error {
 			return fmt.Errorf("tls.keyFile must be specified when tls is enabled")
 		}
 	}
+	if err := validatePublicManagementAuth("webServer", c.Addr, c.User, c.Password, c.Port); err != nil {
+		return err
+	}
 
 	return ValidatePort(c.Port, "webServer.port")
 }
@@ -54,6 +57,9 @@ func validateMetricsServerConfig(c *v1.MetricsServerConfig, web *v1.WebServerCon
 	// net.Listen to decide.
 	if c.Port > 0 && web.Port > 0 && c.Port == web.Port && c.Addr == web.Addr {
 		return fmt.Errorf("metricsServer.addr:port conflicts with webServer.addr:port")
+	}
+	if err := validatePublicManagementAuth("metricsServer", c.Addr, c.User, c.Password, c.Port); err != nil {
+		return err
 	}
 	return nil
 }

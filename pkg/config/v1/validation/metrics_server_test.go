@@ -89,8 +89,19 @@ func checkMetricsConfigBoth(t *testing.T, metrics v1.MetricsServerConfig, web v1
 	require.NoError(t, server.Complete())
 	require.NoError(t, client.Complete())
 	// Assign after completion to also check raw empty (wildcard) addresses.
+	if IsPublicBindAddr(metrics.Addr) && metrics.Port > 0 && metrics.Password == "" {
+		metrics.User = "monitor"
+		metrics.Password = "secret"
+	}
+	if IsPublicBindAddr(web.Addr) && web.Port > 0 && web.Password == "" {
+		web.User = "ops"
+		web.Password = "secret"
+	}
 	server.MetricsServer, server.WebServer = metrics, web
 	client.MetricsServer, client.WebServer = metrics, web
+	if IsPublicBindAddr(server.BindAddr) && server.Auth.Token == "" && server.Auth.TokenSource == nil {
+		server.Auth.Token = "test-token"
+	}
 	validator := NewConfigValidator(nil)
 	_, serverErr := validator.ValidateServerConfig(server)
 	_, clientErr := validator.ValidateClientCommonConfig(client)

@@ -16,7 +16,7 @@ var _ = ginkgo.Describe("[Feature: Chaos]", func() {
 		serverPort := f.AllocPort()
 		serverConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
 		[common]
-		bind_addr = 0.0.0.0
+		bind_addr = 127.0.0.1
 		bind_port = %d
 		`, serverPort))
 

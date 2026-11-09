@@ -166,7 +166,7 @@ var _ = ginkgo.Describe("[Feature: Server Manager]", func() {
 		// Use same port as PortServer
 		serverConf += fmt.Sprintf(`
 		vhostHTTPPort = {{ .%s }}
-		webServer.addr = "0.0.0.0"
+		webServer.addr = "127.0.0.1"
 		webServer.port = %d
 		webServer.user = "admin"
 		webServer.password = "admin"

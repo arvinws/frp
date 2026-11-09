@@ -98,9 +98,8 @@ type Service struct {
 	kcpListener net.Listener
 
 	// Accept connections using quic.
-	// quicPacketConn is owned here: quic-go v0.65 closes a ListenAddr socket
-	// only after its read loop unwinds, so Close would otherwise return while
-	// the UDP port is still bound.
+	// quicPacketConn is closed explicitly: quic-go v0.65 ListenAddr does not
+	// release its UDP socket before Close returns.
 	quicListener   *quic.Listener
 	quicPacketConn net.PacketConn
 
@@ -146,7 +145,9 @@ type Service struct {
 	sshTunnelGateway *ssh.Gateway
 
 	// Auth runtime and encryption materials
-	auth *auth.ServerAuth
+	auth          *auth.ServerAuth
+	loginFailures *loginFailureLimiter
+	loginFailOnce sync.Once
 
 	tlsConfig *tls.Config
 
@@ -173,6 +174,9 @@ func NewService(cfg *v1.ServerConfig) (*Service, error) {
 	authRuntime, err := auth.BuildServerAuth(&cfg.Auth)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.Auth.Method == v1.AuthMethodToken && len(authRuntime.EncryptionKey()) == 0 && validation.IsPublicBindAddr(cfg.BindAddr) {
+		return nil, fmt.Errorf("auth.token is empty, which is not allowed when bindAddr %q is not a loopback address", cfg.BindAddr)
 	}
 
 	clientRegistry := registry.NewClientRegistry()
@@ -539,7 +543,7 @@ func (svr *Service) closeResources() {
 		svr.quicListener.Close()
 	}
 	if svr.quicPacketConn != nil {
-		svr.quicPacketConn.Close()
+		_ = svr.quicPacketConn.Close()
 	}
 	if svr.websocketListener != nil {
 		svr.websocketListener.Close()
@@ -572,13 +576,32 @@ func (svr *Service) closeResources() {
 	svr.ctlManager.Close()
 }
 
+var (
+	adminRestartDelay  = 500 * time.Millisecond
+	adminRestartAction = performAdminRestart
+)
+
 func (svr *Service) APIRestart(ctx *httppkg.Context) (any, error) {
-	time.AfterFunc(500*time.Millisecond, func() {
-		log.Infof("server restarting by admin request")
-		svr.Close()
-		os.Exit(0)
+	time.AfterFunc(adminRestartDelay, func() {
+		adminRestartAction(svr)
 	})
 	return httppkg.GeneralResponse{Code: 200, Msg: "restarting"}, nil
+}
+
+// performAdminRestart re-executes the current binary after closing listeners.
+// A successful re-exec keeps the same PID, so systemd does not observe an
+// exit. If re-exec fails, the process exits 1. systemd Restart=on-failure and
+// Restart=always then start it again. Restart=no leaves it stopped. Exit
+// status 0 is not used: Restart=on-failure treats that as a clean stop.
+func performAdminRestart(svr *Service) {
+	log.Infof("server restart requested by dashboard")
+	if svr != nil {
+		_ = svr.Close()
+	}
+	if err := restartCurrentProcess(); err != nil {
+		log.Errorf("re-exec failed: %v; exiting with status 1 so a process manager can restart", err)
+		os.Exit(1)
+	}
 }
 
 func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, internal bool, session io.Closer) {
@@ -623,10 +646,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn, interna
 				svr.ctlManager.Remove(ctl)
 			}
 			if writeErr := writeWithDeadline(conn, connWriteTimeout, func() error {
-				return acceptedConn.conn.WriteMsg(&msg.LoginResp{
-					Version: version.Full(),
-					Error:   util.GenerateResponseErrorString("register control error", err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)),
-				})
+				return acceptedConn.conn.WriteMsg(loginFailureResponse(err, lo.FromPtr(svr.cfg.DetailedErrorsToClient)))
 			}); writeErr != nil {
 				xl.Warnf("write login error response error: %v", writeErr)
 			}
@@ -952,8 +972,20 @@ func (svr *Service) RegisterControl(
 	if internal && loginMsg.ClientSpec.AlwaysAuthPass {
 		authVerifier = auth.AlwaysPassVerifier
 	}
+	remoteIP := clientIP(ctlConn)
+	if remoteIP != "" && svr.loginGuard().blocked(remoteIP) {
+		xl.Warnf("login rejected for %s: too many failures", remoteIP)
+		return nil, errAuthorization
+	}
 	if err := authVerifier.VerifyLogin(loginMsg); err != nil {
-		return nil, err
+		if remoteIP != "" {
+			svr.loginGuard().fail(remoteIP)
+		}
+		xl.Warnf("login authorization failed from %s: %v", remoteIP, err)
+		return nil, errAuthorization
+	}
+	if remoteIP != "" {
+		svr.loginGuard().success(remoteIP)
 	}
 	effectiveClientID := loginMsg.ClientID
 	if effectiveClientID == "" {

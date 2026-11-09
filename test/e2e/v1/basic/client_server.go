@@ -14,6 +14,7 @@ import (
 )
 
 type generalTestConfigures struct {
+	serverBase    string
 	server        string
 	client        string
 	clientPrefix  string
@@ -36,6 +37,9 @@ func renderBindPortConfig(protocol string) string {
 
 func runClientServerTest(f *framework.Framework, configures *generalTestConfigures) {
 	serverConf := consts.DefaultServerConfig
+	if configures.serverBase != "" {
+		serverConf = configures.serverBase
+	}
 	clientConf := consts.DefaultClientConfig
 	if configures.clientPrefix != "" {
 		clientConf = configures.clientPrefix
@@ -318,11 +322,15 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 		for _, protocol := range supportProtocols {
 			tmp := protocol
 			defineClientServerTest("IPv6 bind address: "+strings.ToUpper(tmp), f, &generalTestConfigures{
-				server: fmt.Sprintf(`
-					bindAddr = "::"
-					%s
-					`, renderBindPortConfig(protocol)),
+				serverBase: fmt.Sprintf(`
+bindAddr = "::"
+bindPort = {{ .%s }}
+auth.token = "e2e-ipv6"
+log.level = "trace"
+`, consts.PortServerName),
+				server: renderBindPortConfig(protocol),
 				client: fmt.Sprintf(`
+					auth.token = "e2e-ipv6"
 					transport.protocol = "%s"
 					`, protocol),
 			})
