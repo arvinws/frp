@@ -1,1 +1,3 @@
+# Loopback is safe without a token. A public bindAddr requires auth.token.
+bindAddr = "127.0.0.1"
 bindPort = 7000

@@ -131,9 +131,18 @@ func (s *Server) RouteRegister(register func(helper *RouterRegisterHelper)) {
 }
 
 func (s *Server) registerPprofHandlers() {
-	s.router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	s.router.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	s.router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	s.router.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	s.router.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+	// Keep profiling behind the same credentials as the dashboard. Registering
+	// these on the root router previously skipped Basic authentication.
+	s.router.Handle("/debug/pprof/cmdline", s.authenticated(http.HandlerFunc(pprof.Cmdline)))
+	s.router.Handle("/debug/pprof/profile", s.authenticated(http.HandlerFunc(pprof.Profile)))
+	s.router.Handle("/debug/pprof/symbol", s.authenticated(http.HandlerFunc(pprof.Symbol)))
+	s.router.Handle("/debug/pprof/trace", s.authenticated(http.HandlerFunc(pprof.Trace)))
+	s.router.PathPrefix("/debug/pprof/").Handler(s.authenticated(http.HandlerFunc(pprof.Index)))
+}
+
+func (s *Server) authenticated(next http.Handler) http.Handler {
+	if s.authMiddleware == nil {
+		return next
+	}
+	return s.authMiddleware(next)
 }

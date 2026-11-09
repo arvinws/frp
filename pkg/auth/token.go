@@ -17,6 +17,7 @@ package auth
 import (
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
@@ -24,15 +25,43 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 )
 
+const maxIdenticalLoginUses = 4
+
 type TokenAuthSetterVerifier struct {
 	additionalAuthScopes []v1.AuthScope
 	token                string
+	maxTimeDiff          time.Duration
+	now                  func() time.Time
+
+	mu   sync.Mutex
+	seen map[string]loginUse
+}
+
+type loginUse struct {
+	count   int
+	expires time.Time
 }
 
 func NewTokenAuth(additionalAuthScopes []v1.AuthScope, token string) *TokenAuthSetterVerifier {
+	return newTokenAuth(additionalAuthScopes, token, 0, time.Now)
+}
+
+// NewTokenAuthWithPolicy enables the login timestamp window. A zero window
+// keeps the historical behavior used by tests and by the client setter.
+func NewTokenAuthWithPolicy(additionalAuthScopes []v1.AuthScope, token string, maxTimeDiff time.Duration) *TokenAuthSetterVerifier {
+	return newTokenAuth(additionalAuthScopes, token, maxTimeDiff, time.Now)
+}
+
+func newTokenAuth(additionalAuthScopes []v1.AuthScope, token string, maxTimeDiff time.Duration, now func() time.Time) *TokenAuthSetterVerifier {
+	if now == nil {
+		now = time.Now
+	}
 	return &TokenAuthSetterVerifier{
 		additionalAuthScopes: additionalAuthScopes,
 		token:                token,
+		maxTimeDiff:          maxTimeDiff,
+		now:                  now,
+		seen:                 make(map[string]loginUse),
 	}
 }
 
@@ -65,6 +94,41 @@ func (auth *TokenAuthSetterVerifier) VerifyLogin(m *msg.Login) error {
 	if !util.ConstantTimeEqString(util.GetAuthKey(auth.token, m.Timestamp), m.PrivilegeKey) {
 		return fmt.Errorf("token in login doesn't match token from configuration")
 	}
+	if auth.maxTimeDiff <= 0 {
+		return nil
+	}
+	now := auth.now()
+	skew := time.Duration(m.Timestamp-now.Unix()) * time.Second
+	if skew < 0 {
+		skew = -skew
+	}
+	if skew > auth.maxTimeDiff {
+		return fmt.Errorf("login timestamp is outside the allowed window")
+	}
+	if err := auth.rememberLogin(m, now); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (auth *TokenAuthSetterVerifier) rememberLogin(m *msg.Login, now time.Time) error {
+	key := m.PrivilegeKey + "\n" + m.Hostname + "\n" + m.User + "\n" + m.ClientID + "\n" + m.RunID + "\n" + m.Os + "\n" + m.Arch
+	auth.mu.Lock()
+	defer auth.mu.Unlock()
+	for id, entry := range auth.seen {
+		if !entry.expires.After(now) {
+			delete(auth.seen, id)
+		}
+	}
+	entry := auth.seen[key]
+	if !entry.expires.After(now) {
+		entry = loginUse{expires: now.Add(auth.maxTimeDiff)}
+	}
+	if entry.count >= maxIdenticalLoginUses {
+		return fmt.Errorf("replayed login")
+	}
+	entry.count++
+	auth.seen[key] = entry
 	return nil
 }
 

@@ -16,7 +16,7 @@ var _ = ginkgo.Describe("[Feature: Heartbeat]", func() {
 		serverPort := f.AllocPort()
 		serverConf := fmt.Sprintf(`
 		[common]
-		bind_addr = 0.0.0.0
+		bind_addr = 127.0.0.1
 		bind_port = %d
 		heartbeat_timeout = -1
 		tcp_mux_keepalive_interval = 2

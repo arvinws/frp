@@ -31,6 +31,7 @@ func (svr *Service) registerRouteHandlers(helper *httppkg.RouterRegisterHelper) 
 	subRouter := helper.Router.NewRoute().Subrouter()
 
 	subRouter.Use(helper.AuthMiddleware)
+	subRouter.Use(httppkg.ProtectWrites)
 	subRouter.Use(httppkg.NewRequestLogger)
 
 	// metrics

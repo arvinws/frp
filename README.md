@@ -571,15 +571,14 @@ Check frp's status and proxies' statistics information by Dashboard.
 Configure a port for dashboard to enable this feature:
 
 ```toml
-# The default value is 127.0.0.1. Change it to 0.0.0.0 when you want to access it from a public network.
-webServer.addr = "0.0.0.0"
+# Keep the dashboard on loopback. A non-loopback address requires a non-default password.
+webServer.addr = "127.0.0.1"
 webServer.port = 7500
-# dashboard's username and password are both optional
 webServer.user = "admin"
-webServer.password = "admin"
+webServer.password = "change-this-password"
 ```
 
-Then visit `http://[serverAddr]:7500` to see the dashboard, with username and password both being `admin`.
+Then visit `http://127.0.0.1:7500` with the username and password from the configuration. See [docs/security-hardening.md](docs/security-hardening.md) before exposing frps or the dashboard.
 
 Additionally, you can use HTTPS port by using your domains wildcard or normal SSL certificate:
 

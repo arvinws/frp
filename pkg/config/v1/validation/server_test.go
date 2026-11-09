@@ -36,6 +36,7 @@ func TestValidateServerConfigMaxPoolCount(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := validServerConfigWithAuth(v1.AuthServerConfig{Method: v1.AuthMethodToken})
+			cfg.BindAddr = "127.0.0.1"
 			cfg.Transport.MaxPoolCount = tc.maxPoolCount
 			require.NoError(t, cfg.Complete())
 

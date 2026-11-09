@@ -21,7 +21,6 @@ import (
 	"os"
 
 	"github.com/fatedier/frp/pkg/util/log"
-	"github.com/fatedier/frp/pkg/util/version"
 )
 
 var NotFoundPagePath = ""
@@ -43,8 +42,6 @@ const (
 <h1>The page you requested was not found.</h1>
 <p>Sorry, the page you are looking for is currently unavailable.<br/>
 Please try again later.</p>
-<p>The server is powered by <a href="https://github.com/fatedier/frp">frp</a>.</p>
-<p><em>Faithfully yours, frp.</em></p>
 </body>
 </html>
 `
@@ -69,7 +66,6 @@ func getNotFoundPageContent() []byte {
 
 func NotFoundResponse() *http.Response {
 	header := make(http.Header)
-	header.Set("server", "frp/"+version.Full())
 	header.Set("Content-Type", "text/html")
 
 	content := getNotFoundPageContent()

@@ -126,6 +126,7 @@ func TestSystemCAUnsupportedLocations(t *testing.T) {
 				if test.server {
 					cfg := &v1.ServerConfig{}
 					require.NoError(t, json.Unmarshal(data, cfg))
+					cfg.BindAddr = "127.0.0.1"
 					require.NoError(t, cfg.Complete())
 					warnings, err = NewConfigValidator(nil).ValidateServerConfig(cfg)
 				} else {

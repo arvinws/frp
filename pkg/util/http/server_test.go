@@ -16,6 +16,7 @@ package http
 
 import (
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,4 +53,34 @@ func TestNewServerDoesNotLeakListenerOnTLSFailure(t *testing.T) {
 	ln, err = net.Listen("tcp", address)
 	require.NoError(t, err, "web server port was not released")
 	require.NoError(t, ln.Close())
+}
+
+func TestWebServerPprofRequiresAuth(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := ln.Addr().(*net.TCPAddr).Port
+	require.NoError(t, ln.Close())
+
+	svr, err := NewServer(v1.WebServerConfig{
+		Addr: "127.0.0.1", Port: port, User: "ops", Password: "not-admin", PprofEnable: true,
+	})
+	require.NoError(t, err)
+	defer svr.Close()
+	go func() { _ = svr.Run() }()
+
+	url := "http://" + svr.Address() + "/debug/pprof/cmdline"
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:gosec // G107: URL is the local test server
+	require.NoError(t, err)
+	unauthed, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, unauthed.StatusCode)
+	require.NoError(t, unauthed.Body.Close())
+
+	req, err = http.NewRequest(http.MethodGet, url, nil) //nolint:gosec // G107: URL is the local test server
+	require.NoError(t, err)
+	req.SetBasicAuth("ops", "not-admin")
+	authed, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, authed.StatusCode)
+	require.NoError(t, authed.Body.Close())
 }

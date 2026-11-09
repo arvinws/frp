@@ -20,7 +20,7 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 	ginkgo.Describe("Verify", func() {
 		ginkgo.It("frps valid", func() {
 			path := f.GenerateConfigFile(`
-			bindAddr = "0.0.0.0"
+			bindAddr = "127.0.0.1"
 			bindPort = 7000
 			`)
 			_, output, err := f.RunFrps("verify", "-c", path)
@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("[Feature: Cmd]", func() {
 		})
 		ginkgo.It("frps invalid", func() {
 			path := f.GenerateConfigFile(`
-			bindAddr = "0.0.0.0"
+			bindAddr = "127.0.0.1"
 			bindPort = 70000
 			`)
 			_, output, err := f.RunFrps("verify", "-c", path)

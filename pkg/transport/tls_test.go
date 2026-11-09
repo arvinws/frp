@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -247,4 +248,13 @@ func TestClientTLSConfigHandshake(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGeneratedCertificateDoesNotAdvertiseSoftware(t *testing.T) {
+	pair, err := newRandomTLSKeyPair()
+	require.NoError(t, err)
+	cert, err := x509.ParseCertificate(pair.Certificate[0])
+	require.NoError(t, err)
+	require.NotContains(t, strings.ToLower(cert.Subject.CommonName), "frp")
+	require.Less(t, cert.NotAfter.Sub(cert.NotBefore), 200*24*time.Hour)
 }
