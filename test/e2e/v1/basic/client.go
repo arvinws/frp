@@ -87,7 +87,7 @@ var _ = ginkgo.Describe("[Feature: ClientManage]", func() {
 
 		dashboardPort := f.AllocPort()
 		clientConf := consts.DefaultClientConfig + fmt.Sprintf(`
-        webServer.addr = "0.0.0.0"
+        webServer.addr = "127.0.0.1"
 		webServer.port = %d
 		webServer.user = "admin"
 		webServer.password = "admin"

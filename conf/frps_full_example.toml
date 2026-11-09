@@ -69,7 +69,8 @@ vhostHTTPSPort = 443
 webServer.addr = "127.0.0.1"
 webServer.port = 7500
 webServer.user = "admin"
-webServer.password = "admin"
+# Do not use admin/admin. It is rejected when webServer.addr is not loopback.
+webServer.password = "change-this-password"
 # webServer.tls.certFile = "server.crt"
 # webServer.tls.keyFile = "server.key"
 # dashboard assets directory(only for debug mode)
@@ -116,8 +117,8 @@ auth.method = "token"
 # Optional values are HeartBeats, NewWorkConns.
 # auth.additionalScopes = ["HeartBeats", "NewWorkConns"]
 
-# auth token
-auth.token = "12345678"
+# Replace this before exposing frps. An empty token is rejected on a public bindAddr.
+auth.token = "replace-with-a-long-random-token"
 
 # alternatively, you can use tokenSource to load the token from a file
 # this is mutually exclusive with auth.token

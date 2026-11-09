@@ -15,7 +15,7 @@ var _ = ginkgo.Describe("[Feature: Chaos]", func() {
 	ginkgo.It("reconnect after frps restart", func() {
 		serverPort := f.AllocPort()
 		serverConfigPath := f.GenerateConfigFile(fmt.Sprintf(`
-		bindAddr = "0.0.0.0"
+		bindAddr = "127.0.0.1"
 		bindPort = %d
 		`, serverPort))
 

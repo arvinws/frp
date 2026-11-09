@@ -15,6 +15,7 @@
 package audit
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +54,12 @@ func (r *MemoryRecorder) Record(event Event) {
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
 	}
+	event.Action = sanitizeLogValue(event.Action)
+	event.TargetClientID = sanitizeLogValue(event.TargetClientID)
+	event.TargetRunID = sanitizeLogValue(event.TargetRunID)
+	event.Operator = sanitizeLogValue(event.Operator)
+	event.Result = sanitizeLogValue(event.Result)
+	event.Detail = sanitizeLogValue(event.Detail)
 
 	r.mu.Lock()
 	r.events = append(r.events, event)
@@ -76,6 +83,12 @@ func (r *MemoryRecorder) List() []Event {
 	out := make([]Event, len(r.events))
 	copy(out, r.events)
 	return out
+}
+
+func sanitizeLogValue(value string) string {
+	value = strings.ReplaceAll(value, "\r", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return value
 }
 
 var _ Recorder = (*MemoryRecorder)(nil)

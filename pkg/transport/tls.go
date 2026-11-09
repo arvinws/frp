@@ -19,9 +19,12 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"time"
 )
@@ -52,10 +55,20 @@ func newRandomTLSKeyPair() (*tls.Certificate, error) {
 		serialNumber = big.NewInt(1)
 	}
 
+	nameRaw := make([]byte, 4)
+	if _, err = rand.Read(nameRaw); err != nil {
+		return nil, err
+	}
+	// A short random name and a 90-day lifetime avoid the previous empty
+	// subject plus exactly-ten-year certificate fingerprint. The name is not
+	// stable across restarts and does not identify the software.
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
+		Subject:      pkix.Name{CommonName: "localhost-" + hex.EncodeToString(nameRaw)},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
 		NotBefore:    time.Now().Add(-1 * time.Hour),
-		NotAfter:     time.Now().Add(365 * 24 * time.Hour * 10),
+		NotAfter:     time.Now().Add(90 * 24 * time.Hour),
 	}
 
 	certDER, err := x509.CreateCertificate(

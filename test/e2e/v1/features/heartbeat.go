@@ -15,7 +15,7 @@ var _ = ginkgo.Describe("[Feature: Heartbeat]", func() {
 	ginkgo.It("disable application layer heartbeat", func() {
 		serverPort := f.AllocPort()
 		serverConf := fmt.Sprintf(`
-		bindAddr = "0.0.0.0"
+		bindAddr = "127.0.0.1"
 		bindPort = %d
 		transport.heartbeatTimeout = -1
 		transport.tcpMuxKeepaliveInterval = 2

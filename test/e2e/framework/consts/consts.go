@@ -18,6 +18,7 @@ var (
 	PortClientAdmin string
 
 	DefaultServerConfig = `
+bindAddr = "127.0.0.1"
 bindPort = {{ .%s }}
 log.level = "trace"
 `
@@ -31,6 +32,7 @@ log.level = "trace"
 
 	LegacyDefaultServerConfig = `
 	[common]
+	bind_addr = 127.0.0.1
 	bind_port = {{ .%s }}
 	log_level = trace
 	`

@@ -36,6 +36,8 @@ func (v *ConfigValidator) ValidateServerConfig(c *v1.ServerConfig) (Warning, err
 	}
 
 	errs = AppendError(errs, v.validateAuthTokenSource(c.Auth.Token, c.Auth.TokenSource))
+	errs = AppendError(errs, validateTokenForPublicBind(c))
+	errs = AppendError(errs, validateTokenTimeDiff(c))
 
 	if err := validateLogConfig(&c.Log); err != nil {
 		errs = AppendError(errs, err)

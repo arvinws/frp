@@ -17,6 +17,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	v1 "github.com/fatedier/frp/pkg/config/v1"
 	"github.com/fatedier/frp/pkg/msg"
@@ -118,7 +119,7 @@ func BuildServerAuth(cfg *v1.AuthServerConfig) (*ServerAuth, error) {
 func NewAuthVerifier(cfg v1.AuthServerConfig) (authVerifier Verifier) {
 	switch cfg.Method {
 	case v1.AuthMethodToken:
-		authVerifier = NewTokenAuth(cfg.AdditionalScopes, cfg.Token)
+		authVerifier = NewTokenAuthWithPolicy(cfg.AdditionalScopes, cfg.Token, time.Duration(cfg.MaxTimeDiffSeconds)*time.Second)
 	case v1.AuthMethodOIDC:
 		tokenVerifier := NewTokenVerifier(cfg.OIDC)
 		authVerifier = NewOidcAuthVerifier(cfg.AdditionalScopes, tokenVerifier)

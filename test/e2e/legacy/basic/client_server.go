@@ -313,9 +313,11 @@ var _ = ginkgo.Describe("[Feature: Client-Server]", func() {
 			defineClientServerTest("IPv6 bind address: "+strings.ToUpper(tmp), f, &generalTestConfigures{
 				server: fmt.Sprintf(`
 					bind_addr = ::
+					token = e2e-ipv6
 					%s
 					`, renderBindPortConfig(protocol)),
 				client: fmt.Sprintf(`
+					token = e2e-ipv6
 					protocol = %s
 					`, protocol),
 			})

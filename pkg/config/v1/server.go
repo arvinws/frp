@@ -133,10 +133,19 @@ type AuthServerConfig struct {
 	Token            string               `json:"token,omitempty"`
 	TokenSource      *ValueSource         `json:"tokenSource,omitempty"`
 	OIDC             AuthOIDCServerConfig `json:"oidc,omitempty"`
+	// MaxTimeDiffSeconds is how far a token login timestamp may differ from the
+	// server clock. The default is 10 minutes. It is not a protocol change:
+	// clients that already send the current time keep working. AdditionalScopes
+	// stays opt-in so existing frpc deployments are not required to send
+	// heartbeat or work-connection authentication.
+	MaxTimeDiffSeconds int64 `json:"maxTimeDiffSeconds,omitempty"`
 }
 
 func (c *AuthServerConfig) Complete() error {
-	c.Method = util.EmptyOr(c.Method, "token")
+	c.Method = util.EmptyOr(c.Method, AuthMethodToken)
+	if c.Method == AuthMethodToken {
+		c.MaxTimeDiffSeconds = util.EmptyOr(c.MaxTimeDiffSeconds, 600)
+	}
 	return nil
 }
 

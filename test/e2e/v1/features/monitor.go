@@ -20,7 +20,7 @@ var _ = ginkgo.Describe("[Feature: Monitor]", func() {
 		dashboardPort := f.AllocPort()
 		serverConf := consts.DefaultServerConfig + fmt.Sprintf(`
 		enablePrometheus = true
-		webServer.addr = "0.0.0.0"
+		webServer.addr = "127.0.0.1"
 		webServer.port = %d
 		`, dashboardPort)
 
